@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Finance bounded context (database: erp_finance).
+/// partyId references CRM (customer) or Supplier; sourceId references a Sales
+/// order / Purchase order / GRN; partId the Master Data service. No cross-db FKs.
+
+model Invoice {
+  id             String              @id @default(uuid()) @db.Char(36)
+  code           String              @unique @db.VarChar(30)
+
+  type           InvoiceType
+  status         InvoiceStatus       @default(DRAFT)
+
+  partyType      PartyType
+  partyId        String              @db.Char(36)
+  partyName      String?             @db.VarChar(200)
+
+  sourceType     SourceType          @default(MANUAL)
+  sourceId       String?             @db.Char(36)
+  sourceCode     String?             @db.VarChar(40)
+
+  currencyCode   String              @default("INR") @db.VarChar(3)
+  invoiceDate    DateTime            @default(now())
+  dueDate        DateTime?
+  paymentTermDays Int                @default(30)
+
+  placeOfSupply  String?             @db.VarChar(2)
+  sellerGstin    String?             @db.VarChar(15)
+  buyerGstin     String?             @db.VarChar(15)
+  interState     Boolean             @default(false)
+
+  subtotal       Decimal             @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  taxableTotal   Decimal             @default(0) @db.Decimal(18, 2)
+  cgstTotal      Decimal             @default(0) @db.Decimal(18, 2)
+  sgstTotal      Decimal             @default(0) @db.Decimal(18, 2)
+  igstTotal      Decimal             @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal             @default(0) @db.Decimal(18, 2)
+  roundOff       Decimal             @default(0) @db.Decimal(8, 2)
+  grandTotal     Decimal             @default(0) @db.Decimal(18, 2)
+
+  amountPaid     Decimal             @default(0) @db.Decimal(18, 2)
+  amountDue      Decimal             @default(0) @db.Decimal(18, 2)
+
+  notes          String?             @db.VarChar(2000)
+
+  lines          InvoiceLine[]
+  allocations    PaymentAllocation[]
+
+  issuedAt       DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?             @db.VarChar(255)
+
+  createdBy      String?             @db.Char(36)
+  updatedBy      String?             @db.Char(36)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([sourceType, sourceId, type], name: "uniq_source_invoice")
+  @@index([status])
+  @@index([type])
+  @@index([partyId])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id            String   @id @default(uuid()) @db.Char(36)
+
+  invoiceId     String   @db.Char(36)
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  partId        String?  @db.Char(36)
+  partCode      String?  @db.VarChar(60)
+  description   String?  @db.VarChar(255)
+  hsnCode       String?  @db.VarChar(20)
+
+  quantity      Decimal  @db.Decimal(18, 3)
+  unitPrice     Decimal  @db.Decimal(18, 4)
+  discountPct   Decimal  @default(0) @db.Decimal(6, 3)
+  taxRatePct    Decimal  @default(0) @db.Decimal(6, 3)
+
+  taxableValue  Decimal  @default(0) @db.Decimal(18, 2)
+  cgst          Decimal  @default(0) @db.Decimal(18, 2)
+  sgst          Decimal  @default(0) @db.Decimal(18, 2)
+  igst          Decimal  @default(0) @db.Decimal(18, 2)
+  lineTotal     Decimal  @default(0) @db.Decimal(18, 2)
+
+  createdAt     DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id                String              @id @default(uuid()) @db.Char(36)
+  code              String              @unique @db.VarChar(30)
+
+  direction         PaymentDirection
+  status            PaymentStatus       @default(COMPLETED)
+
+  partyType         PartyType
+  partyId           String              @db.Char(36)
+  partyName         String?             @db.VarChar(200)
+
+  method            PaymentMethod       @default(BANK)
+  reference         String?             @db.VarChar(120)
+
+  amount            Decimal             @db.Decimal(18, 2)
+  allocatedAmount   Decimal             @default(0) @db.Decimal(18, 2)
+  currencyCode      String              @default("INR") @db.VarChar(3)
+  paymentDate       DateTime            @default(now())
+
+  notes             String?             @db.VarChar(2000)
+
+  allocations       PaymentAllocation[]
+
+  createdBy         String?             @db.Char(36)
+  updatedBy         String?             @db.Char(36)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([status])
+  @@index([direction])
+  @@index([partyId])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id         String   @id @default(uuid()) @db.Char(36)
+
+  paymentId  String   @db.Char(36)
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  invoiceId  String   @db.Char(36)
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount     Decimal  @db.Decimal(18, 2)
+
+  createdAt  DateTime @default(now())
+
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+  @@map("payment_allocations")
+}
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum SourceType {
+  SALES_ORDER
+  PURCHASE_ORDER
+  GRN
+  MANUAL
+}
+
+enum PaymentDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  UPI
+  CHEQUE
+  CARD
+  RAZORPAY
+  ADJUSTMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}

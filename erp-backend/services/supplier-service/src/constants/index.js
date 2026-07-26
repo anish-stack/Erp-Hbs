@@ -1,0 +1,139 @@
+'use strict';
+
+const SUPPLIER_STATUS = {
+  DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  ON_HOLD: 'ON_HOLD',
+  BLACKLISTED: 'BLACKLISTED',
+  INACTIVE: 'INACTIVE'
+};
+
+/**
+ * Allowed status transitions. Anything not listed here is rejected, so a
+ * supplier can never jump from DRAFT straight to APPROVED.
+ */
+const STATUS_TRANSITIONS = {
+  DRAFT: ['PENDING_APPROVAL', 'INACTIVE'],
+  PENDING_APPROVAL: ['APPROVED', 'REJECTED', 'DRAFT'],
+  APPROVED: ['ON_HOLD', 'BLACKLISTED', 'INACTIVE'],
+  REJECTED: ['DRAFT', 'INACTIVE'],
+  ON_HOLD: ['APPROVED', 'BLACKLISTED', 'INACTIVE'],
+  BLACKLISTED: ['ON_HOLD', 'INACTIVE'],
+  INACTIVE: ['DRAFT']
+};
+
+/** Statuses a supplier may transact under. */
+const TRANSACTABLE_STATUSES = [SUPPLIER_STATUS.APPROVED];
+
+const SUPPLIER_TYPE = {
+  MANUFACTURER: 'MANUFACTURER',
+  AUTHORISED_DISTRIBUTOR: 'AUTHORISED_DISTRIBUTOR',
+  DISTRIBUTOR: 'DISTRIBUTOR',
+  TRADER: 'TRADER',
+  BROKER: 'BROKER',
+  SERVICE_PROVIDER: 'SERVICE_PROVIDER'
+};
+
+const DOCUMENT_TYPE = {
+  GST_CERTIFICATE: 'GST_CERTIFICATE',
+  PAN_CARD: 'PAN_CARD',
+  MSME_CERTIFICATE: 'MSME_CERTIFICATE',
+  INCORPORATION: 'INCORPORATION',
+  ISO_CERTIFICATE: 'ISO_CERTIFICATE',
+  ROHS_DECLARATION: 'ROHS_DECLARATION',
+  AUTHORISATION_LETTER: 'AUTHORISATION_LETTER',
+  BANK_PROOF: 'BANK_PROOF',
+  NDA: 'NDA',
+  AGREEMENT: 'AGREEMENT',
+  OTHER: 'OTHER'
+};
+
+/** Documents a supplier must carry before approval. */
+const MANDATORY_DOCUMENTS = {
+  REGISTERED: [DOCUMENT_TYPE.GST_CERTIFICATE, DOCUMENT_TYPE.PAN_CARD],
+  COMPOSITION: [DOCUMENT_TYPE.GST_CERTIFICATE, DOCUMENT_TYPE.PAN_CARD],
+  UNREGISTERED: [DOCUMENT_TYPE.PAN_CARD],
+  OVERSEAS: [],
+  SEZ: [DOCUMENT_TYPE.GST_CERTIFICATE]
+};
+
+const ADDRESS_TYPE = {
+  REGISTERED: 'REGISTERED',
+  BILLING: 'BILLING',
+  SHIPPING: 'SHIPPING',
+  WAREHOUSE: 'WAREHOUSE'
+};
+
+const CONTACT_TYPE = {
+  SALES: 'SALES',
+  ACCOUNTS: 'ACCOUNTS',
+  LOGISTICS: 'LOGISTICS',
+  QUALITY: 'QUALITY',
+  MANAGEMENT: 'MANAGEMENT',
+  SUPPORT: 'SUPPORT'
+};
+
+const PRICE_SOURCE = {
+  MANUAL: 'MANUAL',
+  QUOTATION: 'QUOTATION',
+  CATALOGUE: 'CATALOGUE',
+  IMPORT: 'IMPORT'
+};
+
+const RISK_LEVEL = { LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' };
+
+const TAX_TREATMENT = {
+  REGISTERED: 'REGISTERED',
+  COMPOSITION: 'COMPOSITION',
+  UNREGISTERED: 'UNREGISTERED',
+  OVERSEAS: 'OVERSEAS',
+  SEZ: 'SEZ'
+};
+
+const QUEUE_NAMES = { SUPPLIER: 'supplier.maintenance' };
+
+const JOB_NAMES = {
+  DOCUMENT_EXPIRY_SCAN: 'document-expiry-scan',
+  RATING_RECALC: 'rating-recalculation'
+};
+
+const EVENTS = {
+  CREATED: 'supplier.created',
+  UPDATED: 'supplier.updated',
+  SUBMITTED: 'supplier.submitted',
+  APPROVED: 'supplier.approved',
+  REJECTED: 'supplier.rejected',
+  BLACKLISTED: 'supplier.blacklisted',
+  REINSTATED: 'supplier.reinstated',
+  PRICE_UPDATED: 'supplier.price.updated',
+  DOCUMENT_EXPIRING: 'supplier.document.expiring',
+  DOCUMENT_EXPIRED: 'supplier.document.expired',
+  RATED: 'supplier.rated'
+};
+
+const CACHE = {
+  supplier: (id) => `supplier:${id}`,
+  options: () => 'supplier:options',
+  bestPrice: (partId) => `supplier:bestprice:${partId}`,
+  pattern: 'supplier:*'
+};
+
+module.exports = {
+  SUPPLIER_STATUS,
+  STATUS_TRANSITIONS,
+  TRANSACTABLE_STATUSES,
+  SUPPLIER_TYPE,
+  DOCUMENT_TYPE,
+  MANDATORY_DOCUMENTS,
+  ADDRESS_TYPE,
+  CONTACT_TYPE,
+  PRICE_SOURCE,
+  RISK_LEVEL,
+  TAX_TREATMENT,
+  QUEUE_NAMES,
+  JOB_NAMES,
+  EVENTS,
+  CACHE
+};

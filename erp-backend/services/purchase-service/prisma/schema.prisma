@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model PurchaseOrder {
+  id              String    @id @default(uuid()) @db.Char(36)
+  code            String    @unique @db.VarChar(30)
+  supplierId      String    @db.Char(36)
+  supplierCode    String    @db.VarChar(30)
+  supplierName    String    @db.VarChar(200)
+  status          PoStatus  @default(DRAFT)
+
+  rfqId           String?   @db.Char(36)
+  currencyCode    String    @default("INR") @db.VarChar(3)
+  paymentTermDays Int       @default(30)
+  incoterm        String?   @db.VarChar(20)
+  deliveryAddress String?   @db.VarChar(500)
+  expectedDate    DateTime?
+
+  subTotal        Decimal   @default(0) @db.Decimal(18, 2)
+  taxTotal        Decimal   @default(0) @db.Decimal(18, 2)
+  grandTotal      Decimal   @default(0) @db.Decimal(18, 2)
+
+  requestedBy     String    @db.Char(36)
+  approvalRequired Boolean  @default(false)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedBy      String?   @db.Char(36)
+  rejectedAt      DateTime?
+  rejectedBy      String?   @db.Char(36)
+  rejectionReason String?   @db.VarChar(500)
+  cancelledAt     DateTime?
+  cancelReason    String?   @db.VarChar(500)
+  closedAt        DateTime?
+
+  notes           String?   @db.VarChar(2000)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdBy       String?   @db.Char(36)
+  updatedBy       String?   @db.Char(36)
+
+  lines           PoLine[]
+  grns            Grn[]
+  statusLogs      PoStatusLog[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@index([deletedAt])
+  @@map("purchase_orders")
+}
+
+model PoLine {
+  id             String   @id @default(uuid()) @db.Char(36)
+  poId           String   @db.Char(36)
+  lineNumber     Int
+  partId         String   @db.Char(36)
+  partNumber     String   @db.VarChar(120)
+  description    String   @db.VarChar(500)
+  quantity       Int
+  uomCode        String   @db.VarChar(20)
+  unitPrice      Decimal  @db.Decimal(18, 4)
+  discountPercent Decimal @default(0) @db.Decimal(6, 3)
+  taxRateId      String?  @db.Char(36)
+  taxPercent     Decimal  @default(0) @db.Decimal(6, 3)
+  lineTotal      Decimal  @db.Decimal(18, 2)
+
+  receivedQty    Int      @default(0)
+  rejectedQty    Int      @default(0)
+  closedQty      Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  po             PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  grnLines       GrnLine[]
+
+  @@unique([poId, lineNumber])
+  @@index([poId])
+  @@index([partId])
+  @@map("po_lines")
+}
+
+model PoStatusLog {
+  id         String     @id @default(uuid()) @db.Char(36)
+  poId       String     @db.Char(36)
+  fromStatus PoStatus?
+  toStatus   PoStatus
+  reason     String?    @db.VarChar(500)
+  actorId    String?    @db.Char(36)
+  createdAt  DateTime   @default(now())
+
+  po         PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@map("po_status_logs")
+}
+
+/// Goods Receipt Note against a PO. A PO can receive multiple partial GRNs.
+model Grn {
+  id           String     @id @default(uuid()) @db.Char(36)
+  code         String     @unique @db.VarChar(30)
+  poId         String     @db.Char(36)
+  status       GrnStatus  @default(DRAFT)
+
+  supplierInvoiceNumber String? @db.VarChar(100)
+  vehicleNumber String?   @db.VarChar(30)
+  receivedBy   String     @db.Char(36)
+  receivedAt   DateTime   @default(now())
+
+  inspectionRequired Boolean @default(true)
+  inspectionStatus   InspectionStatus @default(PENDING)
+
+  notes        String?    @db.VarChar(1000)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  createdBy    String?    @db.Char(36)
+
+  po           PurchaseOrder @relation(fields: [poId], references: [id])
+  lines        GrnLine[]
+
+  @@index([poId])
+  @@index([status])
+  @@map("grns")
+}
+
+model GrnLine {
+  id             String   @id @default(uuid()) @db.Char(36)
+  grnId          String   @db.Char(36)
+  poLineId       String   @db.Char(36)
+  partId         String   @db.Char(36)
+  partNumber     String   @db.VarChar(120)
+
+  orderedQty     Int
+  receivedQty    Int
+  acceptedQty    Int      @default(0)
+  rejectedQty    Int      @default(0)
+  rejectionReason String? @db.VarChar(500)
+
+  batchNumber    String?  @db.VarChar(100)
+  expiryDate     DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  grn            Grn      @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  poLine         PoLine   @relation(fields: [poLineId], references: [id])
+
+  @@index([grnId])
+  @@index([poLineId])
+  @@map("grn_lines")
+}
+
+enum PoStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum GrnStatus {
+  DRAFT
+  SUBMITTED
+  INSPECTED
+  COMPLETED
+  REJECTED
+}
+
+enum InspectionStatus {
+  PENDING
+  IN_PROGRESS
+  PASSED
+  FAILED
+  PARTIAL
+  NOT_REQUIRED
+}

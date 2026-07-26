@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// CRM bounded context (database: erp_crm).
+
+model Lead {
+  id              String       @id @default(uuid()) @db.Char(36)
+  code            String       @unique @db.VarChar(30)
+  companyName     String       @db.VarChar(200)
+  contactName     String       @db.VarChar(150)
+  email           String?      @db.VarChar(191)
+  phone           String?      @db.VarChar(30)
+  designation     String?      @db.VarChar(150)
+  source          LeadSource   @default(OTHER)
+  stage           LeadStage    @default(NEW)
+  estimatedValue  Decimal?     @db.Decimal(18, 2)
+  currencyCode    String       @default("INR") @db.VarChar(3)
+  probability     Int          @default(10)
+
+  categoryIds     Json?
+  city            String?      @db.VarChar(100)
+  state           String?      @db.VarChar(100)
+  country         String       @default("India") @db.VarChar(100)
+
+  ownerId         String?      @db.Char(36)
+  assignedAt      DateTime?
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+
+  lostReason      String?      @db.VarChar(500)
+  convertedAt     DateTime?
+  convertedToId   String?      @db.Char(36)
+
+  tags            Json?
+  notes           String?      @db.VarChar(2000)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+  createdBy       String?      @db.Char(36)
+  updatedBy       String?      @db.Char(36)
+
+  activities      Activity[]
+  stageLogs       LeadStageLog[]
+
+  @@index([stage])
+  @@index([ownerId])
+  @@index([nextFollowUpAt])
+  @@index([deletedAt])
+  @@map("leads")
+}
+
+model LeadStageLog {
+  id         String    @id @default(uuid()) @db.Char(36)
+  leadId     String    @db.Char(36)
+  fromStage  LeadStage?
+  toStage    LeadStage
+  reason     String?   @db.VarChar(500)
+  actorId    String?   @db.Char(36)
+  createdAt  DateTime  @default(now())
+
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_stage_logs")
+}
+
+model Customer {
+  id                String         @id @default(uuid()) @db.Char(36)
+  code              String         @unique @db.VarChar(30)
+  legalName         String         @db.VarChar(200)
+  tradeName         String?        @db.VarChar(200)
+  type              CustomerType   @default(BUSINESS)
+  status            CustomerStatus @default(ACTIVE)
+
+  gstin             String?        @unique @db.VarChar(15)
+  pan               String?        @db.VarChar(10)
+  taxTreatment      TaxTreatment   @default(REGISTERED)
+
+  email             String?        @db.VarChar(191)
+  phone             String?        @db.VarChar(30)
+  website           String?        @db.VarChar(255)
+
+  currencyCode      String         @default("INR") @db.VarChar(3)
+  paymentTermDays   Int            @default(30)
+  creditLimit       Decimal        @default(0) @db.Decimal(18, 2)
+  creditUsed        Decimal        @default(0) @db.Decimal(18, 2)
+  creditHoldOverride Boolean       @default(false)
+
+  industry          String?        @db.VarChar(100)
+  segment           CustomerSegment @default(SMB)
+  ownerId           String?        @db.Char(36)
+
+  leadId            String?        @db.Char(36)
+  notes             String?        @db.VarChar(2000)
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  deletedAt         DateTime?
+  createdBy         String?        @db.Char(36)
+  updatedBy         String?        @db.Char(36)
+
+  addresses         CustomerAddress[]
+  contacts          CustomerContact[]
+  activities        Activity[]
+  creditLogs        CreditLog[]
+
+  @@index([status])
+  @@index([segment])
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String      @id @default(uuid()) @db.Char(36)
+  customerId String      @db.Char(36)
+  type       AddressType @default(BILLING)
+  line1      String      @db.VarChar(255)
+  line2      String?     @db.VarChar(255)
+  city       String      @db.VarChar(100)
+  state      String      @db.VarChar(100)
+  stateCode  String?     @db.VarChar(5)
+  country    String      @default("India") @db.VarChar(100)
+  pincode    String?     @db.VarChar(15)
+  isPrimary  Boolean     @default(false)
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+model CustomerContact {
+  id          String   @id @default(uuid()) @db.Char(36)
+  customerId  String   @db.Char(36)
+  name        String   @db.VarChar(150)
+  designation String?  @db.VarChar(150)
+  email       String?  @db.VarChar(191)
+  phone       String?  @db.VarChar(30)
+  mobile      String?  @db.VarChar(30)
+  isPrimary   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_contacts")
+}
+
+/// Every credit-limit change, sale, or payment that moves the credit meter.
+model CreditLog {
+  id          String   @id @default(uuid()) @db.Char(36)
+  customerId  String   @db.Char(36)
+  type        CreditLogType
+  amount      Decimal  @db.Decimal(18, 2)
+  balanceAfter Decimal @db.Decimal(18, 2)
+  reference   String?  @db.VarChar(100)
+  notes       String?  @db.VarChar(500)
+  actorId     String?  @db.Char(36)
+  createdAt   DateTime @default(now())
+
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("credit_logs")
+}
+
+/// Shared timeline: calls, emails, meetings, notes — against a lead or a customer.
+model Activity {
+  id          String       @id @default(uuid()) @db.Char(36)
+  leadId      String?      @db.Char(36)
+  customerId  String?      @db.Char(36)
+  type        ActivityType
+  subject     String       @db.VarChar(200)
+  notes       String?      @db.VarChar(2000)
+  dueAt       DateTime?
+  completedAt DateTime?
+  outcome     String?      @db.VarChar(255)
+
+  createdBy   String       @db.Char(36)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([customerId])
+  @@index([dueAt])
+  @@map("activities")
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  COLD_CALL
+  EXHIBITION
+  EMAIL_CAMPAIGN
+  SOCIAL_MEDIA
+  PARTNER
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum CustomerType {
+  BUSINESS
+  INDIVIDUAL
+  GOVERNMENT
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  ON_HOLD
+  BLACKLISTED
+}
+
+enum CustomerSegment {
+  ENTERPRISE
+  SMB
+  STARTUP
+  GOVERNMENT
+  RETAIL
+}
+
+enum TaxTreatment {
+  REGISTERED
+  COMPOSITION
+  UNREGISTERED
+  OVERSEAS
+  SEZ
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+  REGISTERED
+}
+
+enum CreditLogType {
+  LIMIT_SET
+  SALE
+  PAYMENT
+  CREDIT_NOTE
+  ADJUSTMENT
+  RELEASE
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  TASK
+}

@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Quality bounded context (database: erp_quality).
+/// grnId / poId / supplierId / partId / warehouseId / lotId reference other
+/// services and are stored as plain ids (no cross-db FKs).
+
+model InspectionPlan {
+  id           String       @id @default(uuid()) @db.Char(36)
+  code         String       @unique @db.VarChar(30)
+  name         String       @db.VarChar(150)
+
+  description String       @db.VarChar(150)
+  partId       String?      @db.Char(36)
+  categoryId   String?      @db.Char(36)
+
+  samplingPlan SamplingPlan @default(SAMPLE)
+  aqlLevel     String?      @db.VarChar(10)
+  sampleSize   Int?
+  checkpoints  Json?        // [{ parameter, specification, method, mandatory }]
+
+  isActive     Boolean      @default(true)
+
+  createdBy    String?      @db.Char(36)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([partId])
+  @@index([categoryId])
+  @@map("inspection_plans")
+}
+
+model Inspection {
+  id            String             @id @default(uuid()) @db.Char(36)
+  code          String             @unique @db.VarChar(30)
+
+  type          InspectionType     @default(INCOMING)
+  status        InspectionStatus   @default(PENDING)
+
+  grnId         String?            @db.Char(36)
+  grnCode       String?            @db.VarChar(40)
+  poId          String?            @db.Char(36)
+  supplierId    String?            @db.Char(36)
+
+  partId        String             @db.Char(36)
+  partCode      String?            @db.VarChar(60)
+  partName      String?            @db.VarChar(200)
+  lotId         String?            @db.Char(36)
+  lotNumber     String?            @db.VarChar(60)
+  warehouseId   String?            @db.Char(36)
+
+  planId        String?            @db.Char(36)
+
+  receivedQty   Decimal            @db.Decimal(18, 3)
+  sampleSize    Decimal            @default(0) @db.Decimal(18, 3)
+  inspectedQty  Decimal            @default(0) @db.Decimal(18, 3)
+  acceptedQty   Decimal            @default(0) @db.Decimal(18, 3)
+  rejectedQty   Decimal            @default(0) @db.Decimal(18, 3)
+  unitCost      Decimal            @default(0) @db.Decimal(18, 4)
+
+  disposition   Disposition?
+  inspectorId   String?            @db.Char(36)
+  remarks       String?            @db.VarChar(1000)
+
+  results       InspectionResult[]
+
+  refType       String?            @db.VarChar(30)
+  refId         String?            @db.Char(36)
+
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  createdBy     String?            @db.Char(36)
+  updatedBy     String?            @db.Char(36)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status])
+  @@index([partId])
+  @@index([supplierId])
+  @@index([grnId])
+  @@map("inspections")
+}
+
+model InspectionResult {
+  id            String        @id @default(uuid()) @db.Char(36)
+
+  inspectionId  String        @db.Char(36)
+  inspection    Inspection    @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  parameter     String        @db.VarChar(150)
+  specification String?       @db.VarChar(255)
+  method        String?       @db.VarChar(120)
+  observed      String?       @db.VarChar(255)
+
+  result        ResultFlag    @default(PASS)
+  defectType    String?       @db.VarChar(120)
+  severity      DefectSeverity?
+  qtyDefective  Decimal       @default(0) @db.Decimal(18, 3)
+  note          String?       @db.VarChar(500)
+
+  createdAt     DateTime      @default(now())
+
+  @@index([inspectionId])
+  @@index([result])
+  @@map("inspection_results")
+}
+
+enum InspectionType {
+  INCOMING
+  IN_PROCESS
+  FINAL
+  RETURN
+}
+
+enum InspectionStatus {
+  PENDING
+  IN_PROGRESS
+  PASSED
+  FAILED
+  PARTIAL
+  ON_HOLD
+  CANCELLED
+}
+
+enum SamplingPlan {
+  NONE
+  FULL
+  SAMPLE
+  AQL
+}
+
+enum Disposition {
+  ACCEPT
+  REJECT
+  REWORK
+  RETURN_TO_SUPPLIER
+  USE_AS_IS
+  SCRAP
+}
+
+enum DefectSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum ResultFlag {
+  PASS
+  FAIL
+}

@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Sales bounded context (database: erp_sales).
+/// customerId references the CRM service; partId the Master Data service;
+/// warehouseId / reservationId the Inventory service. No cross-db FKs.
+
+model Quotation {
+  id             String          @id @default(uuid()) @db.Char(36)
+  code           String          @unique @db.VarChar(30)
+  status         QuotationStatus @default(DRAFT)
+
+  customerId     String          @db.Char(36)
+  customerName   String?         @db.VarChar(200)
+
+  currencyCode   String          @default("INR") @db.VarChar(3)
+  quoteDate      DateTime        @default(now())
+  validUntil     DateTime?
+
+  subtotal       Decimal         @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal         @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal         @default(0) @db.Decimal(18, 2)
+  grandTotal     Decimal         @default(0) @db.Decimal(18, 2)
+
+  terms          String?         @db.VarChar(2000)
+  notes          String?         @db.VarChar(2000)
+
+  convertedOrderId String?       @db.Char(36)
+
+  lines          QuotationLine[]
+
+  createdBy      String?         @db.Char(36)
+  updatedBy      String?         @db.Char(36)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status])
+  @@index([customerId])
+  @@map("quotations")
+}
+
+model QuotationLine {
+  id           String    @id @default(uuid()) @db.Char(36)
+
+  quotationId  String    @db.Char(36)
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  partId       String    @db.Char(36)
+  partCode     String?   @db.VarChar(60)
+  description  String?   @db.VarChar(255)
+
+  quantity     Decimal   @db.Decimal(18, 3)
+  unitPrice    Decimal   @db.Decimal(18, 4)
+  discountPct  Decimal   @default(0) @db.Decimal(6, 3)
+  taxRatePct   Decimal   @default(0) @db.Decimal(6, 3)
+  lineTotal    Decimal   @default(0) @db.Decimal(18, 2)
+
+  createdAt    DateTime  @default(now())
+
+  @@index([quotationId])
+  @@index([partId])
+  @@map("quotation_lines")
+}
+
+model SalesOrder {
+  id             String           @id @default(uuid()) @db.Char(36)
+  code           String           @unique @db.VarChar(30)
+  status         SalesOrderStatus @default(DRAFT)
+
+  customerId     String           @db.Char(36)
+  customerName   String?          @db.VarChar(200)
+  quotationId    String?          @db.Char(36)
+
+  currencyCode   String           @default("INR") @db.VarChar(3)
+  orderDate      DateTime         @default(now())
+  requiredDate   DateTime?
+  warehouseId    String?          @db.Char(36)
+
+  subtotal       Decimal          @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal          @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal          @default(0) @db.Decimal(18, 2)
+  grandTotal     Decimal          @default(0) @db.Decimal(18, 2)
+
+  paymentTermDays Int             @default(30)
+  reserved       Boolean          @default(false)
+  terms          String?          @db.VarChar(2000)
+  notes          String?          @db.VarChar(2000)
+
+  confirmedAt    DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?          @db.VarChar(255)
+  closedAt       DateTime?
+
+  lines          SalesOrderLine[]
+
+  createdBy      String?          @db.Char(36)
+  updatedBy      String?          @db.Char(36)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+  @@index([customerId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id            String     @id @default(uuid()) @db.Char(36)
+
+  orderId       String     @db.Char(36)
+  order         SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  partId        String     @db.Char(36)
+  partCode      String?    @db.VarChar(60)
+  description   String?    @db.VarChar(255)
+
+  quantity      Decimal    @db.Decimal(18, 3)
+  unitPrice     Decimal    @db.Decimal(18, 4)
+  discountPct   Decimal    @default(0) @db.Decimal(6, 3)
+  taxRatePct    Decimal    @default(0) @db.Decimal(6, 3)
+  lineTotal     Decimal    @default(0) @db.Decimal(18, 2)
+
+  reservedQty   Decimal    @default(0) @db.Decimal(18, 3)
+  shippedQty    Decimal    @default(0) @db.Decimal(18, 3)
+  invoicedQty   Decimal    @default(0) @db.Decimal(18, 3)
+  reservationId String?    @db.Char(36)
+
+  createdAt     DateTime   @default(now())
+
+  @@index([orderId])
+  @@index([partId])
+  @@map("sales_order_lines")
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  CLOSED
+}

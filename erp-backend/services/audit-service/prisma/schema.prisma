@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Audit bounded context (database: erp_audit).
+/// Append-only: rows are never updated, only inserted and eventually purged.
+
+model AuditLog {
+  id            String        @id @default(uuid()) @db.Char(36)
+
+  /// Deduplication key taken from the RabbitMQ envelope.
+  eventId       String        @unique @db.Char(36)
+  correlationId String?       @db.Char(36)
+
+  event         String        @db.VarChar(100)
+  source        String        @db.VarChar(50)
+  channel       AuditChannel  @default(EVENT)
+
+  entity        String        @db.VarChar(60)
+  entityId      String?       @db.VarChar(60)
+  action        AuditAction   @default(OTHER)
+  severity      AuditSeverity @default(INFO)
+
+  actorId       String?       @db.Char(36)
+  actorEmail    String?       @db.VarChar(191)
+  actorRole     String?       @db.VarChar(50)
+
+  summary       String?       @db.VarChar(500)
+  payload       Json?
+  changes       Json?
+
+  ipAddress     String?       @db.VarChar(64)
+  userAgent     String?       @db.VarChar(255)
+  requestId     String?       @db.VarChar(64)
+
+  occurredAt    DateTime
+  createdAt     DateTime      @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([event])
+  @@index([action])
+  @@index([severity])
+  @@index([occurredAt])
+  @@index([correlationId])
+  @@map("audit_logs")
+}
+
+/// Daily rollup so dashboards never scan the raw table.
+model AuditSummary {
+  id         String   @id @default(uuid()) @db.Char(36)
+  day        DateTime @db.Date
+  entity     String   @db.VarChar(60)
+  action     String   @db.VarChar(30)
+  total      Int      @default(0)
+  actorCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([day, entity, action])
+  @@index([day])
+  @@map("audit_summaries")
+}
+
+/// Events that could not be persisted after all retries.
+model AuditDeadLetter {
+  id         String   @id @default(uuid()) @db.Char(36)
+  event      String?  @db.VarChar(100)
+  eventId    String?  @db.Char(36)
+  reason     String   @db.VarChar(500)
+  rawPayload Json?
+  retries    Int      @default(0)
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resolvedAt])
+  @@map("audit_dead_letters")
+}
+
+model ExportJob {
+  id            String          @id @default(uuid()) @db.Char(36)
+  jobId         String?         @db.VarChar(100)
+  status        ExportJobStatus @default(QUEUED)
+  filters       Json?
+  fileName      String?         @db.VarChar(255)
+  filePath      String?         @db.VarChar(500)
+  totalRows     Int             @default(0)
+  processedRows Int             @default(0)
+  message       String?         @db.VarChar(500)
+  requestedBy   String          @db.Char(36)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([requestedBy])
+  @@index([status])
+  @@map("audit_export_jobs")
+}
+
+enum AuditChannel {
+  EVENT
+  API
+  SYSTEM
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  STATUS_CHANGE
+  PERMISSION_CHANGE
+  SECURITY
+  OTHER
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ExportJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}

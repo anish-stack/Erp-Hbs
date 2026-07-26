@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Notification bounded context (database: erp_notification).
+/// recipientId references the User service (Auth/User). No cross-db FKs.
+
+model Notification {
+  id           String             @id @default(uuid()) @db.Char(36)
+
+  recipientId  String?            @db.Char(36) // null = broadcast to all connected users
+  audienceRole String?            @db.VarChar(60) // optional role-based fan-out, e.g. "finance"
+
+  type         String             @db.VarChar(60) // e.g. sales.order.confirmed
+  category     NotificationCategory @default(SYSTEM)
+  priority     NotificationPriority @default(NORMAL)
+
+  title        String             @db.VarChar(200)
+  message      String             @db.VarChar(1000)
+  data         Json?
+
+  channels     Json               // e.g. ["IN_APP","EMAIL"]
+  read         Boolean            @default(false)
+  readAt       DateTime?
+
+  sourceEvent  String?            @db.VarChar(80)
+  sourceId     String?            @db.Char(36)
+
+  deliveries   Delivery[]
+
+  createdAt    DateTime           @default(now())
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Delivery {
+  id             String         @id @default(uuid()) @db.Char(36)
+
+  notificationId String         @db.Char(36)
+  notification   Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  channel        DeliveryChannel
+  status         DeliveryStatus @default(PENDING)
+  target         String?        @db.VarChar(200) // email address / phone number / socket room
+  providerRef    String?        @db.VarChar(150)
+  error          String?        @db.VarChar(500)
+  attempts       Int            @default(0)
+
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@map("deliveries")
+}
+
+model NotificationPreference {
+  id          String   @id @default(uuid()) @db.Char(36)
+  userId      String   @unique @db.Char(36)
+
+  emailEnabled Boolean @default(true)
+  smsEnabled   Boolean @default(false)
+  inAppEnabled Boolean @default(true)
+
+  mutedTypes   Json?   // array of type prefixes the user has muted
+
+  email        String? @db.VarChar(191)
+  phone        String? @db.VarChar(20)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+enum NotificationCategory {
+  SALES
+  PURCHASE
+  INVENTORY
+  QUALITY
+  FINANCE
+  SHIPMENT
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}

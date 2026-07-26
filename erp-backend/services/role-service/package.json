@@ -1,0 +1,30 @@
+{
+  "name": "@erp/role-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ERP Role, Permission and Dynamic Menu Service",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:pull": "prisma db pull",
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@erp/shared": "file:../../packages/shared",
+    "@prisma/client": "^5.22.0",
+    "express": "^4.21.1",
+    "joi": "^17.13.3",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

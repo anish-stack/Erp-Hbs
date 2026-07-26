@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Supplier bounded context (database: erp_supplier).
+/// Part ids reference the Master Data Service; they are stored as plain ids,
+/// never as foreign keys, because the services own separate databases.
+
+model Supplier {
+  id                String          @id @default(uuid()) @db.Char(36)
+  code              String          @unique @db.VarChar(30)
+  legalName         String          @db.VarChar(200)
+  tradeName         String?         @db.VarChar(200)
+  type              SupplierType    @default(DISTRIBUTOR)
+  status            SupplierStatus  @default(DRAFT)
+
+  gstin             String?         @unique @db.VarChar(15)
+  pan               String?         @db.VarChar(10)
+  cin               String?         @db.VarChar(21)
+  msmeNumber        String?         @db.VarChar(30)
+  taxTreatment      TaxTreatment    @default(REGISTERED)
+
+  email             String?         @db.VarChar(191)
+  phone             String?         @db.VarChar(30)
+  website           String?         @db.VarChar(255)
+
+  currencyCode      String          @default("INR") @db.VarChar(3)
+  paymentTermDays   Int             @default(30)
+  creditLimit       Decimal?        @db.Decimal(18, 2)
+  incoterm          String?         @db.VarChar(20)
+  defaultLeadTime   Int?
+
+  /// Master Data category ids this supplier can serve.
+  categoryIds       Json?
+  /// Manufacturer ids this supplier is authorised for.
+  manufacturerIds   Json?
+
+  isPreferred       Boolean         @default(false)
+  riskLevel         RiskLevel       @default(MEDIUM)
+  overallRating     Decimal?        @db.Decimal(4, 2)
+  lastEvaluatedAt   DateTime?
+
+  notes             String?         @db.VarChar(2000)
+
+  submittedAt       DateTime?
+  submittedBy       String?         @db.Char(36)
+  approvedAt        DateTime?
+  approvedBy        String?         @db.Char(36)
+  rejectedAt        DateTime?
+  rejectedBy        String?         @db.Char(36)
+  rejectionReason   String?         @db.VarChar(500)
+  blacklistedAt     DateTime?
+  blacklistedBy     String?         @db.Char(36)
+  blacklistReason   String?         @db.VarChar(500)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  createdBy         String?         @db.Char(36)
+  updatedBy         String?         @db.Char(36)
+  deletedBy         String?         @db.Char(36)
+
+  addresses         SupplierAddress[]
+  contacts          SupplierContact[]
+  bankAccounts      SupplierBankAccount[]
+  documents         SupplierDocument[]
+  prices            SupplierPartPrice[]
+  ratings           SupplierRating[]
+  statusLogs        SupplierStatusLog[]
+
+  @@index([status])
+  @@index([type])
+  @@index([isPreferred])
+  @@index([deletedAt])
+  @@map("suppliers")
+}
+
+model SupplierAddress {
+  id          String      @id @default(uuid()) @db.Char(36)
+  supplierId  String      @db.Char(36)
+  type        AddressType @default(REGISTERED)
+  line1       String      @db.VarChar(255)
+  line2       String?     @db.VarChar(255)
+  city        String      @db.VarChar(100)
+  state       String      @db.VarChar(100)
+  stateCode   String?     @db.VarChar(5)
+  country     String      @default("India") @db.VarChar(100)
+  pincode     String?     @db.VarChar(15)
+  isPrimary   Boolean     @default(false)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  supplier    Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_addresses")
+}
+
+model SupplierContact {
+  id          String      @id @default(uuid()) @db.Char(36)
+  supplierId  String      @db.Char(36)
+  name        String      @db.VarChar(150)
+  designation String?     @db.VarChar(150)
+  department  ContactType @default(SALES)
+  email       String?     @db.VarChar(191)
+  phone       String?     @db.VarChar(30)
+  mobile      String?     @db.VarChar(30)
+  isPrimary   Boolean     @default(false)
+  isActive    Boolean     @default(true)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  supplier    Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_contacts")
+}
+
+model SupplierBankAccount {
+  id             String    @id @default(uuid()) @db.Char(36)
+  supplierId     String    @db.Char(36)
+  accountName    String    @db.VarChar(200)
+  accountNumber  String    @db.VarChar(50)
+  /// Last four digits kept separately so lists never expose the full number.
+  accountLast4   String    @db.VarChar(4)
+  ifsc           String?   @db.VarChar(11)
+  swift          String?   @db.VarChar(11)
+  iban           String?   @db.VarChar(34)
+  bankName       String    @db.VarChar(150)
+  branch         String?   @db.VarChar(150)
+  currencyCode   String    @default("INR") @db.VarChar(3)
+  isPrimary      Boolean   @default(false)
+  isVerified     Boolean   @default(false)
+  verifiedAt     DateTime?
+  verifiedBy     String?   @db.Char(36)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  supplier       Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_bank_accounts")
+}
+
+model SupplierDocument {
+  id          String       @id @default(uuid()) @db.Char(36)
+  supplierId  String       @db.Char(36)
+  type        DocumentType
+  /// File Service id.
+  fileId      String       @db.Char(36)
+  number      String?      @db.VarChar(100)
+  issuedOn    DateTime?
+  expiresOn   DateTime?
+  isVerified  Boolean      @default(false)
+  verifiedAt  DateTime?
+  verifiedBy  String?      @db.Char(36)
+  notes       String?      @db.VarChar(500)
+  expiryNotifiedAt DateTime?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  uploadedBy  String?      @db.Char(36)
+
+  supplier    Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([expiresOn])
+  @@map("supplier_documents")
+}
+
+/// Quoted price of one part from one supplier, valid for a period.
+model SupplierPartPrice {
+  id                 String    @id @default(uuid()) @db.Char(36)
+  supplierId         String    @db.Char(36)
+  /// Master Data part id.
+  partId             String    @db.Char(36)
+  supplierPartNumber String?   @db.VarChar(120)
+
+  moq                Int       @default(1)
+  packQuantity       Int       @default(1)
+  unitPrice          Decimal   @db.Decimal(18, 4)
+  currencyCode       String    @default("INR") @db.VarChar(3)
+  discountPercent    Decimal   @default(0) @db.Decimal(6, 3)
+  leadTimeDays       Int?
+  stockQuantity      Int?
+
+  validFrom          DateTime  @default(now())
+  validTo            DateTime?
+  isPreferred        Boolean   @default(false)
+  isActive           Boolean   @default(true)
+  source             PriceSource @default(MANUAL)
+  notes              String?   @db.VarChar(500)
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+  createdBy          String?   @db.Char(36)
+  updatedBy          String?   @db.Char(36)
+
+  supplier           Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, partId, moq, validFrom], name: "uniqueSupplierPartTier")
+  @@index([partId])
+  @@index([supplierId])
+  @@index([isActive])
+  @@map("supplier_part_prices")
+}
+
+/// Periodic vendor scorecard.
+model SupplierRating {
+  id                  String   @id @default(uuid()) @db.Char(36)
+  supplierId          String   @db.Char(36)
+  periodStart         DateTime
+  periodEnd           DateTime
+
+  onTimeDeliveryScore Decimal  @default(0) @db.Decimal(5, 2)
+  qualityScore        Decimal  @default(0) @db.Decimal(5, 2)
+  priceScore          Decimal  @default(0) @db.Decimal(5, 2)
+  responsivenessScore Decimal  @default(0) @db.Decimal(5, 2)
+  complianceScore     Decimal  @default(0) @db.Decimal(5, 2)
+  overallScore        Decimal  @default(0) @db.Decimal(5, 2)
+  grade               String   @db.VarChar(2)
+
+  ordersPlaced        Int      @default(0)
+  ordersOnTime        Int      @default(0)
+  lotsReceived        Int      @default(0)
+  lotsRejected        Int      @default(0)
+
+  remarks             String?  @db.VarChar(1000)
+  evaluatedBy         String?  @db.Char(36)
+  createdAt           DateTime @default(now())
+
+  supplier            Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, periodStart, periodEnd])
+  @@index([supplierId])
+  @@map("supplier_ratings")
+}
+
+/// Running counters fed by purchase and quality events between evaluations.
+model SupplierPerformance {
+  id             String   @id @default(uuid()) @db.Char(36)
+  supplierId     String   @unique @db.Char(36)
+  ordersPlaced   Int      @default(0)
+  ordersOnTime   Int      @default(0)
+  ordersLate     Int      @default(0)
+  lotsReceived   Int      @default(0)
+  lotsAccepted   Int      @default(0)
+  lotsRejected   Int      @default(0)
+  quotesRequested Int     @default(0)
+  quotesAnswered  Int     @default(0)
+  lastOrderAt    DateTime?
+  updatedAt      DateTime @updatedAt
+
+  @@map("supplier_performance")
+}
+
+model SupplierStatusLog {
+  id          String         @id @default(uuid()) @db.Char(36)
+  supplierId  String         @db.Char(36)
+  fromStatus  SupplierStatus?
+  toStatus    SupplierStatus
+  reason      String?        @db.VarChar(500)
+  actorId     String?        @db.Char(36)
+  createdAt   DateTime       @default(now())
+
+  supplier    Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_status_logs")
+}
+
+enum SupplierType {
+  MANUFACTURER
+  AUTHORISED_DISTRIBUTOR
+  DISTRIBUTOR
+  TRADER
+  BROKER
+  SERVICE_PROVIDER
+}
+
+enum SupplierStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ON_HOLD
+  BLACKLISTED
+  INACTIVE
+}
+
+enum TaxTreatment {
+  REGISTERED
+  COMPOSITION
+  UNREGISTERED
+  OVERSEAS
+  SEZ
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AddressType {
+  REGISTERED
+  BILLING
+  SHIPPING
+  WAREHOUSE
+}
+
+enum ContactType {
+  SALES
+  ACCOUNTS
+  LOGISTICS
+  QUALITY
+  MANAGEMENT
+  SUPPORT
+}
+
+enum DocumentType {
+  GST_CERTIFICATE
+  PAN_CARD
+  MSME_CERTIFICATE
+  INCORPORATION
+  ISO_CERTIFICATE
+  ROHS_DECLARATION
+  AUTHORISATION_LETTER
+  BANK_PROOF
+  NDA
+  AGREEMENT
+  OTHER
+}
+
+enum PriceSource {
+  MANUAL
+  QUOTATION
+  CATALOGUE
+  IMPORT
+}

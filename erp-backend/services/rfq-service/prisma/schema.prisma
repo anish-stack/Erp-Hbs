@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// RFQ bounded context (database: erp_rfq).
+/// Part and supplier ids reference the Master Data and Supplier services;
+/// stored as plain ids since each service owns its own database.
+
+model Rfq {
+  id     String    @id @default(uuid()) @db.Char(36)
+  code   String    @unique @db.VarChar(30)
+  title  String    @db.VarChar(200)
+  status RfqStatus @default(DRAFT)
+
+  requestedBy  String  @db.Char(36)
+  departmentId String? @db.Char(36)
+
+  currencyCode     String    @default("INR") @db.VarChar(3)
+  validTill        DateTime?
+  responseDeadline DateTime?
+
+  notes        String? @db.VarChar(2000)
+  cancelReason String? @db.VarChar(500)
+
+  sentAt      DateTime?
+  closedAt    DateTime?
+  cancelledAt DateTime?
+  awardedAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?   @db.Char(36)
+  updatedBy String?   @db.Char(36)
+
+  lines      RfqLine[]
+  suppliers  RfqSupplier[]
+  statusLogs RfqStatusLog[]
+  quotes     RfqQuote[]
+
+  @@index([status])
+  @@index([requestedBy])
+  @@index([deletedAt])
+  @@map("rfqs")
+}
+
+model RfqLine {
+  id             String   @id @default(uuid()) @db.Char(36)
+  rfqId          String   @db.Char(36)
+  lineNumber     Int
+  /// Master Data part id.
+  partId         String   @db.Char(36)
+  partNumber     String   @db.VarChar(120)
+  description    String   @db.VarChar(500)
+  quantity       Int
+  uomCode        String   @db.VarChar(20)
+  targetPrice    Decimal? @db.Decimal(18, 4)
+  specifications Json?
+  notes          String?  @db.VarChar(500)
+
+  awardedSupplierId String?  @db.Char(36)
+  awardedQty        Int?
+  awardedPrice      Decimal? @db.Decimal(18, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rfq        Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quoteLines RfqQuoteLine[]
+
+  @@unique([rfqId, lineNumber])
+  @@index([rfqId])
+  @@index([partId])
+  @@map("rfq_lines")
+}
+
+/// One supplier invited to quote on this RFQ.
+model RfqSupplier {
+  id             String            @id @default(uuid()) @db.Char(36)
+  rfqId          String            @db.Char(36)
+  /// Supplier Service supplier id.
+  supplierId     String            @db.Char(36)
+  supplierCode   String            @db.VarChar(30)
+  supplierName   String            @db.VarChar(200)
+  status         RfqSupplierStatus @default(PENDING)
+  invitedAt      DateTime          @default(now())
+  respondedAt    DateTime?
+  declinedReason String?           @db.VarChar(500)
+
+  rfq   Rfq       @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quote RfqQuote?
+
+  @@unique([rfqId, supplierId])
+  @@index([rfqId])
+  @@index([supplierId])
+  @@map("rfq_suppliers")
+}
+
+/// A supplier's full response to one RFQ.
+model RfqQuote {
+  id            String @id @default(uuid()) @db.Char(36)
+  rfqId         String @db.Char(36)
+  rfqSupplierId String @unique @db.Char(36)
+  supplierId    String @db.Char(36)
+
+  currencyCode    String    @default("INR") @db.VarChar(3)
+  validTill       DateTime?
+  paymentTermDays Int?
+  incoterm        String?   @db.VarChar(20)
+  notes           String?   @db.VarChar(1000)
+
+  submittedAt DateTime @default(now())
+  submittedBy String?  @db.Char(36)
+
+  rfq         Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  rfqSupplier RfqSupplier    @relation(fields: [rfqSupplierId], references: [id], onDelete: Cascade)
+  lines       RfqQuoteLine[]
+
+  @@index([rfqId])
+  @@index([supplierId])
+  @@map("rfq_quotes")
+}
+
+model RfqQuoteLine {
+  id        String @id @default(uuid()) @db.Char(36)
+  quoteId   String @db.Char(36)
+  rfqLineId String @db.Char(36)
+
+  unitPrice       Decimal @db.Decimal(18, 4)
+  moq             Int     @default(1)
+  quotedQty       Int
+  leadTimeDays    Int?
+  discountPercent Decimal @default(0) @db.Decimal(6, 3)
+
+  /// Set when the supplier offers a different part than requested.
+  alternatePartId String? @db.Char(36)
+  alternateNotes  String? @db.VarChar(500)
+
+  notes String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote   RfqQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  rfqLine RfqLine  @relation(fields: [rfqLineId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, rfqLineId])
+  @@index([rfqLineId])
+  @@map("rfq_quote_lines")
+}
+
+model RfqStatusLog {
+  id         String     @id @default(uuid()) @db.Char(36)
+  rfqId      String     @db.Char(36)
+  fromStatus RfqStatus?
+  toStatus   RfqStatus
+  reason     String?    @db.VarChar(500)
+  actorId    String?    @db.Char(36)
+  createdAt  DateTime   @default(now())
+
+  rfq Rfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+  @@map("rfq_status_logs")
+}
+
+enum RfqStatus {
+  DRAFT
+  SENT
+  QUOTING
+  QUOTED
+  COMPARED
+  AWARDED
+  CLOSED
+  CANCELLED
+}
+
+enum RfqSupplierStatus {
+  PENDING
+  RESPONDED
+  DECLINED
+  EXPIRED
+}

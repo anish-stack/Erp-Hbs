@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Dashboard bounded context (database: erp_dashboard). The dashboard itself
+/// is a stateless read-aggregator over other services' /stats endpoints
+/// (Redis-cached); the only thing persisted here is each user's chosen
+/// widget layout override.
+
+model DashboardLayout {
+  id         String   @id @default(uuid()) @db.Char(36)
+  userId     String   @unique @db.Char(36)
+  role       String?  @db.VarChar(60)
+  widgetKeys Json     // ordered array of widget keys the user wants to see
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("dashboard_layouts")
+}

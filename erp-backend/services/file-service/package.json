@@ -1,0 +1,38 @@
+{
+  "name": "@erp/file-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ERP File Service - provider agnostic storage",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "worker": "node src/queues/worker.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.696.0",
+    "@aws-sdk/s3-request-presigner": "^3.696.0",
+    "@erp/shared": "file:../../packages/shared",
+    "@prisma/client": "^5.22.0",
+    "bullmq": "^5.28.1",
+    "cloudinary": "^2.5.1",
+    "express": "^4.21.1",
+    "joi": "^17.13.3",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

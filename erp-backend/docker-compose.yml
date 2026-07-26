@@ -1,0 +1,551 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: erp-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: erp_auth
+      TZ: ${TZ:-Asia/Kolkata}
+    command: --default-authentication-plugin=mysql_native_password --max_connections=500
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - erp-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - erp-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: erp-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - erp-net
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: erp-api-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: api-gateway
+      GATEWAY_PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs/api-gateway:/app/services/api-gateway/logs
+    networks:
+      - erp-net
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: erp-auth-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: auth-service
+      AUTH_SERVICE_PORT: 4001
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_auth
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4001:4001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/auth-service:/app/services/auth-service/logs
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  auth-worker:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: erp-auth-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: auth-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_auth
+    depends_on:
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./logs/auth-worker:/app/services/auth-service/logs
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: erp-user-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: user-service
+      USER_SERVICE_PORT: 4002
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_auth
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4002:4002"
+    depends_on:
+      auth-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/user-service:/app/services/user-service/logs
+      - user_bulk_storage:/app/services/user-service/storage
+    networks:
+      - erp-net
+
+  user-worker:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: erp-user-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: user-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_auth
+    depends_on:
+      user-service:
+        condition: service_started
+    volumes:
+      - ./logs/user-worker:/app/services/user-service/logs
+      - user_bulk_storage:/app/services/user-service/storage
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  role-service:
+    build:
+      context: .
+      dockerfile: services/role-service/Dockerfile
+    container_name: erp-role-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: role-service
+      ROLE_SERVICE_PORT: 4003
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_auth
+    ports:
+      - "4003:4003"
+    depends_on:
+      auth-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/role-service:/app/services/role-service/logs
+    networks:
+      - erp-net
+
+  master-service:
+    build:
+      context: .
+      dockerfile: services/master-service/Dockerfile
+    container_name: erp-master-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: master-service
+      MASTER_SERVICE_PORT: 4004
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_master
+    ports:
+      - "4004:4004"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/master-service:/app/services/master-service/logs
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  supplier-service:
+    build:
+      context: .
+      dockerfile: services/supplier-service/Dockerfile
+    container_name: erp-supplier-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: supplier-service
+      SUPPLIER_SERVICE_PORT: 4005
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_supplier
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4005:4005"
+    depends_on:
+      master-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/supplier-service:/app/services/supplier-service/logs
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  supplier-worker:
+    build:
+      context: .
+      dockerfile: services/supplier-service/Dockerfile
+    container_name: erp-supplier-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: supplier-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_supplier
+    depends_on:
+      supplier-service:
+        condition: service_started
+    volumes:
+      - ./logs/supplier-worker:/app/services/supplier-service/logs
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  crm-service:
+    build:
+      context: .
+      dockerfile: services/crm-service/Dockerfile
+    container_name: erp-crm-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: crm-service
+      CRM_SERVICE_PORT: 4006
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_crm
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4006:4006"
+    depends_on:
+      master-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/crm-service:/app/services/crm-service/logs
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  crm-worker:
+    build:
+      context: .
+      dockerfile: services/crm-service/Dockerfile
+    container_name: erp-crm-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: crm-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_crm
+    depends_on:
+      crm-service:
+        condition: service_started
+    volumes:
+      - ./logs/crm-worker:/app/services/crm-service/logs
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  rfq-service:
+    build:
+      context: .
+      dockerfile: services/rfq-service/Dockerfile
+    container_name: erp-rfq-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: rfq-service
+      RFQ_SERVICE_PORT: 4007
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_rfq
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4007:4007"
+    depends_on:
+      master-service:
+        condition: service_started
+      supplier-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/rfq-service:/app/services/rfq-service/logs
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  rfq-worker:
+    build:
+      context: .
+      dockerfile: services/rfq-service/Dockerfile
+    container_name: erp-rfq-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: rfq-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_rfq
+    depends_on:
+      rfq-service:
+        condition: service_started
+    volumes:
+      - ./logs/rfq-worker:/app/services/rfq-service/logs
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  purchase-service:
+    build:
+      context: .
+      dockerfile: services/purchase-service/Dockerfile
+    container_name: erp-purchase-service
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      SERVICE_NAME: purchase-service
+      PURCHASE_SERVICE_PORT: 4008
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_purchase
+      RUN_WORKERS_INLINE: "false"
+    ports: ["4008:4008"]
+    depends_on:
+      master-service: { condition: service_started }
+      supplier-service: { condition: service_started }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    volumes: ["./logs/purchase-service:/app/services/purchase-service/logs"]
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks: [erp-net]
+
+  purchase-worker:
+    build:
+      context: .
+      dockerfile: services/purchase-service/Dockerfile
+    container_name: erp-purchase-worker
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      SERVICE_NAME: purchase-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_purchase
+    depends_on:
+      purchase-service: { condition: service_started }
+    volumes: ["./logs/purchase-worker:/app/services/purchase-service/logs"]
+    command: node src/queues/worker.js
+    networks: [erp-net]
+
+  file-service:
+    build:
+      context: .
+      dockerfile: services/file-service/Dockerfile
+    container_name: erp-file-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: file-service
+      FILE_SERVICE_PORT: 4016
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_file
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4016:4016"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/file-service:/app/services/file-service/logs
+      - file_storage:/app/services/file-service/storage
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  file-worker:
+    build:
+      context: .
+      dockerfile: services/file-service/Dockerfile
+    container_name: erp-file-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: file-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_file
+    depends_on:
+      file-service:
+        condition: service_started
+    volumes:
+      - ./logs/file-worker:/app/services/file-service/logs
+      - file_storage:/app/services/file-service/storage
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  audit-service:
+    build:
+      context: .
+      dockerfile: services/audit-service/Dockerfile
+    container_name: erp-audit-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: audit-service
+      AUDIT_SERVICE_PORT: 4019
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_audit
+      RUN_WORKERS_INLINE: "false"
+    ports:
+      - "4019:4019"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs/audit-service:/app/services/audit-service/logs
+      - audit_storage:/app/services/audit-service/storage
+    command: sh -c "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && node src/server.js"
+    networks:
+      - erp-net
+
+  audit-worker:
+    build:
+      context: .
+      dockerfile: services/audit-service/Dockerfile
+    container_name: erp-audit-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: audit-worker
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/erp_audit
+    depends_on:
+      audit-service:
+        condition: service_started
+    volumes:
+      - ./logs/audit-worker:/app/services/audit-service/logs
+      - audit_storage:/app/services/audit-service/storage
+    command: node src/queues/worker.js
+    networks:
+      - erp-net
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: erp-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api-gateway
+      - auth-service
+      - role-service
+      - user-service
+      - audit-service
+      - file-service
+      - master-service
+      - supplier-service
+      - crm-service
+      - rfq-service
+      - purchase-service
+    networks:
+      - erp-net
+
+volumes:
+  file_storage:
+  audit_storage:
+  user_bulk_storage:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  erp-net:
+    driver: bridge

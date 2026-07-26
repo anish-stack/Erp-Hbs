@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Master data bounded context (database: erp_master).
+/// Every downstream module (RFQ, Purchase, Inventory, Sales) reads from here.
+
+model Manufacturer {
+  id          String    @id @default(uuid()) @db.Char(36)
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(180)
+  aliases     Json?
+  country     String?   @db.VarChar(80)
+  website     String?   @db.VarChar(255)
+  logoFileId  String?   @db.Char(36)
+  description String?   @db.VarChar(1000)
+  isApproved  Boolean   @default(true)
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?   @db.Char(36)
+  updatedBy   String?   @db.Char(36)
+  deletedBy   String?   @db.Char(36)
+
+  parts       Part[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("manufacturers")
+}
+
+model Category {
+  id          String     @id @default(uuid()) @db.Char(36)
+  code        String     @unique @db.VarChar(50)
+  name        String     @db.VarChar(150)
+  description String?    @db.VarChar(500)
+  parentId    String?    @db.Char(36)
+
+  /// Materialised ancestor path, e.g. "SEMI/ICS/MCU" - avoids recursive reads.
+  path        String     @db.VarChar(500)
+  level       Int        @default(0)
+  sortOrder   Int        @default(0)
+  iconKey     String?    @db.VarChar(60)
+  isActive    Boolean    @default(true)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?    @db.Char(36)
+  updatedBy   String?    @db.Char(36)
+  deletedBy   String?    @db.Char(36)
+
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+  parts       Part[]
+
+  @@index([parentId])
+  @@index([path])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
+model Uom {
+  id           String    @id @default(uuid()) @db.Char(36)
+  code         String    @unique @db.VarChar(20)
+  name         String    @db.VarChar(80)
+  decimals     Int       @default(0)
+  isBase       Boolean   @default(false)
+  baseUomId    String?   @db.Char(36)
+  conversion   Decimal   @default(1) @db.Decimal(18, 6)
+  isActive     Boolean   @default(true)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  parts        Part[]
+
+  @@index([isActive])
+  @@map("uoms")
+}
+
+model Currency {
+  id             String    @id @default(uuid()) @db.Char(36)
+  code           String    @unique @db.VarChar(3)
+  name           String    @db.VarChar(80)
+  symbol         String    @db.VarChar(8)
+  decimals       Int       @default(2)
+  isBase         Boolean   @default(false)
+  exchangeRate   Decimal   @default(1) @db.Decimal(18, 6)
+  rateUpdatedAt  DateTime?
+  isActive       Boolean   @default(true)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  parts          Part[]
+
+  @@index([isActive])
+  @@map("currencies")
+}
+
+model TaxRate {
+  id            String    @id @default(uuid()) @db.Char(36)
+  code          String    @unique @db.VarChar(40)
+  name          String    @db.VarChar(120)
+  hsnCode       String?   @db.VarChar(20)
+  ratePercent   Decimal   @db.Decimal(6, 3)
+  cgstPercent   Decimal   @default(0) @db.Decimal(6, 3)
+  sgstPercent   Decimal   @default(0) @db.Decimal(6, 3)
+  igstPercent   Decimal   @default(0) @db.Decimal(6, 3)
+  cessPercent   Decimal   @default(0) @db.Decimal(6, 3)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  parts         Part[]
+
+  @@index([hsnCode])
+  @@index([isActive])
+  @@map("tax_rates")
+}
+
+model Part {
+  id                 String          @id @default(uuid()) @db.Char(36)
+
+  /// Manufacturer part number as printed.
+  partNumber         String          @db.VarChar(120)
+  /// Uppercased, punctuation-stripped MPN used for tolerant search and uniqueness.
+  normalizedNumber   String          @db.VarChar(120)
+  internalCode       String?         @unique @db.VarChar(60)
+
+  manufacturerId     String          @db.Char(36)
+  categoryId         String          @db.Char(36)
+  uomId              String          @db.Char(36)
+  taxRateId          String?         @db.Char(36)
+  currencyId         String?         @db.Char(36)
+
+  description        String          @db.VarChar(500)
+  longDescription    String?         @db.VarChar(2000)
+  packageType        String?         @db.VarChar(60)
+  mountingType       MountingType    @default(UNKNOWN)
+  lifecycle          LifecycleStatus @default(ACTIVE)
+  rohsCompliant      Boolean         @default(true)
+  reachCompliant     Boolean         @default(true)
+  countryOfOrigin    String?         @db.VarChar(80)
+  hsnCode            String?         @db.VarChar(20)
+
+  /// Free-form electrical characteristics: voltage, tolerance, temp range, etc.
+  specifications     Json?
+  datasheetFileId    String?         @db.Char(36)
+  imageFileId        String?         @db.Char(36)
+
+  moq                Int             @default(1)
+  packQuantity       Int             @default(1)
+  leadTimeDays       Int?
+  minStock           Int             @default(0)
+  maxStock           Int?
+  reorderPoint       Int             @default(0)
+  shelfLifeDays      Int?
+
+  standardCost       Decimal?        @db.Decimal(18, 4)
+  lastPurchasePrice  Decimal?        @db.Decimal(18, 4)
+  listPrice          Decimal?        @db.Decimal(18, 4)
+
+  isActive           Boolean         @default(true)
+  isSerialised       Boolean         @default(false)
+  isBatchTracked     Boolean         @default(false)
+
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  deletedAt          DateTime?
+  createdBy          String?         @db.Char(36)
+  updatedBy          String?         @db.Char(36)
+  deletedBy          String?         @db.Char(36)
+
+  manufacturer       Manufacturer    @relation(fields: [manufacturerId], references: [id])
+  category           Category        @relation(fields: [categoryId], references: [id])
+  uom                Uom             @relation(fields: [uomId], references: [id])
+  taxRate            TaxRate?        @relation(fields: [taxRateId], references: [id])
+  currency           Currency?       @relation(fields: [currencyId], references: [id])
+
+  alternatesFrom     PartAlternate[] @relation("PartSource")
+  alternatesTo       PartAlternate[] @relation("PartTarget")
+
+  @@unique([manufacturerId, normalizedNumber], name: "uniqueMpnPerManufacturer")
+  @@index([normalizedNumber])
+  @@index([categoryId])
+  @@index([lifecycle])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("parts")
+}
+
+model PartAlternate {
+  id          String        @id @default(uuid()) @db.Char(36)
+  partId      String        @db.Char(36)
+  alternateId String        @db.Char(36)
+  type        AlternateType @default(FUNCTIONAL)
+  notes       String?       @db.VarChar(500)
+  createdAt   DateTime      @default(now())
+  createdBy   String?       @db.Char(36)
+
+  part        Part          @relation("PartSource", fields: [partId], references: [id], onDelete: Cascade)
+  alternate   Part          @relation("PartTarget", fields: [alternateId], references: [id], onDelete: Cascade)
+
+  @@unique([partId, alternateId])
+  @@index([alternateId])
+  @@map("part_alternates")
+}
+
+model Setting {
+  id          String      @id @default(uuid()) @db.Char(36)
+  key         String      @unique @db.VarChar(100)
+  groupName   String      @db.VarChar(60)
+  label       String      @db.VarChar(150)
+  value       Json
+  dataType    SettingType @default(STRING)
+  description String?     @db.VarChar(500)
+  /// Public settings are readable by any authenticated user.
+  isPublic    Boolean     @default(false)
+  isEditable  Boolean     @default(true)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  updatedBy   String?     @db.Char(36)
+
+  @@index([groupName])
+  @@map("settings")
+}
+
+/// Atomic document numbering shared by every module (PO, SO, GRN, invoices).
+model NumberSequence {
+  id          String       @id @default(uuid()) @db.Char(36)
+  key         String       @unique @db.VarChar(60)
+  name        String       @db.VarChar(150)
+  prefix      String       @db.VarChar(20)
+  suffix      String?      @db.VarChar(20)
+  padding     Int          @default(4)
+  nextValue   Int          @default(1)
+  step        Int          @default(1)
+  resetPolicy ResetPolicy  @default(YEARLY)
+  periodKey   String?      @db.VarChar(20)
+  separator   String       @default("-") @db.VarChar(3)
+  includeYear Boolean      @default(true)
+  includeMonth Boolean     @default(false)
+  isActive    Boolean      @default(true)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("number_sequences")
+}
+
+enum MountingType {
+  SMD
+  THROUGH_HOLE
+  PANEL
+  MODULE
+  UNKNOWN
+}
+
+enum LifecycleStatus {
+  ACTIVE
+  NRND
+  OBSOLETE
+  END_OF_LIFE
+  PREVIEW
+}
+
+enum AlternateType {
+  EXACT
+  FUNCTIONAL
+  UPGRADE
+  DOWNGRADE
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+enum ResetPolicy {
+  NEVER
+  YEARLY
+  MONTHLY
+}

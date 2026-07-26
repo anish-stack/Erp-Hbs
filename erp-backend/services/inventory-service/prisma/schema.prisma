@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Inventory bounded context (database: erp_inventory).
+/// partId and warehouseId reference the Master Data and Warehouse services.
+/// They are stored as plain ids, never as foreign keys, because each service
+/// owns a separate database. StockMovement is an append-only ledger; StockItem
+/// carries the running balance kept in sync inside the same transaction.
+
+model StockItem {
+  id             String   @id @default(uuid()) @db.Char(36)
+
+  partId         String   @db.Char(36)
+  partCode       String?  @db.VarChar(60)
+  partName       String?  @db.VarChar(200)
+  warehouseId    String   @db.Char(36)
+  binLocation    String   @default("DEFAULT") @db.VarChar(40)
+
+  uom            String   @default("PCS") @db.VarChar(12)
+
+  onHand         Decimal  @default(0) @db.Decimal(18, 3)
+  reserved       Decimal  @default(0) @db.Decimal(18, 3)
+  available      Decimal  @default(0) @db.Decimal(18, 3)
+  inTransit      Decimal  @default(0) @db.Decimal(18, 3)
+  quarantined    Decimal  @default(0) @db.Decimal(18, 3)
+  damaged        Decimal  @default(0) @db.Decimal(18, 3)
+
+  avgCost        Decimal  @default(0) @db.Decimal(18, 4)
+  totalValue     Decimal  @default(0) @db.Decimal(20, 2)
+  currencyCode   String   @default("INR") @db.VarChar(3)
+
+  minLevel       Decimal  @default(0) @db.Decimal(18, 3)
+  reorderPoint   Decimal  @default(0) @db.Decimal(18, 3)
+  reorderQty     Decimal  @default(0) @db.Decimal(18, 3)
+  maxLevel       Decimal? @db.Decimal(18, 3)
+
+  isActive       Boolean  @default(true)
+  lastMovementAt DateTime?
+  lastCountedAt  DateTime?
+
+  lots           StockLot[]
+  movements      StockMovement[]
+
+  createdBy      String?  @db.Char(36)
+  updatedBy      String?  @db.Char(36)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([partId, warehouseId, binLocation], name: "position")
+  @@index([warehouseId])
+  @@index([partId])
+  @@index([reorderPoint])
+  @@map("stock_items")
+}
+
+model StockLot {
+  id             String    @id @default(uuid()) @db.Char(36)
+
+  stockItemId    String    @db.Char(36)
+  stockItem      StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  partId         String    @db.Char(36)
+  warehouseId    String    @db.Char(36)
+
+  lotNumber      String    @db.VarChar(60)
+  dateCode       String?   @db.VarChar(20)
+  mslLevel       String?   @db.VarChar(8)
+  serialFrom     String?   @db.VarChar(60)
+  serialTo       String?   @db.VarChar(60)
+
+  receivedQty    Decimal   @db.Decimal(18, 3)
+  remainingQty   Decimal   @db.Decimal(18, 3)
+  unitCost       Decimal   @default(0) @db.Decimal(18, 4)
+  currencyCode   String    @default("INR") @db.VarChar(3)
+
+  status         LotStatus @default(AVAILABLE)
+
+  supplierId     String?   @db.Char(36)
+  grnId          String?   @db.Char(36)
+  grnCode        String?   @db.VarChar(40)
+  mfgDate        DateTime?
+  expiryDate     DateTime?
+
+  receivedAt     DateTime  @default(now())
+  createdBy      String?   @db.Char(36)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([stockItemId, lotNumber], name: "lotOfItem")
+  @@index([partId])
+  @@index([status])
+  @@index([expiryDate])
+  @@map("stock_lots")
+}
+
+model StockMovement {
+  id             String       @id @default(uuid()) @db.Char(36)
+
+  stockItemId    String       @db.Char(36)
+  stockItem      StockItem    @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  partId         String       @db.Char(36)
+  warehouseId    String       @db.Char(36)
+  lotId          String?      @db.Char(36)
+
+  note           String        @db.VarChar(255)
+  type           MovementType
+  direction      Int          // +1 stock in, -1 stock out, 0 informational
+  quantity       Decimal      @db.Decimal(18, 3)
+  unitCost       Decimal      @default(0) @db.Decimal(18, 4)
+  value          Decimal      @default(0) @db.Decimal(20, 2)
+
+  balanceBefore  Decimal      @db.Decimal(18, 3)
+  balanceAfter   Decimal      @db.Decimal(18, 3)
+
+  refType        String?      @db.VarChar(30) // GRN, SALES_ORDER, SHIPMENT, ADJUSTMENT, TRANSFER, MANUAL
+  refId          String?      @db.Char(36)
+  refCode        String?      @db.VarChar(40)
+  reason         String?      @db.VarChar(255)
+
+  actorId        String?      @db.Char(36)
+  createdAt      DateTime     @default(now())
+
+  @@index([stockItemId])
+  @@index([partId])
+  @@index([type])
+  @@index([refType, refId])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+model StockReservation {
+  id             String            @id @default(uuid()) @db.Char(36)
+
+  partId         String            @db.Char(36)
+  warehouseId    String            @db.Char(36)
+  stockItemId    String?           @db.Char(36)
+
+  quantity       Decimal           @db.Decimal(18, 3)
+  fulfilledQty   Decimal           @default(0) @db.Decimal(18, 3)
+
+  status         ReservationStatus @default(ACTIVE)
+
+  refType        String            @default("SALES_ORDER") @db.VarChar(30)
+  refId          String            @db.Char(36)
+  refCode        String?           @db.VarChar(40)
+  reason         String?           @db.VarChar(255)
+
+  expiresAt      DateTime?
+  releasedAt     DateTime?
+  fulfilledAt    DateTime?
+
+  createdBy      String?           @db.Char(36)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([partId, warehouseId])
+  @@index([status])
+  @@index([refType, refId])
+  @@map("stock_reservations")
+}
+
+model StockAdjustment {
+  id             String                @id @default(uuid()) @db.Char(36)
+  code           String                @unique @db.VarChar(30)
+
+  warehouseId    String                @db.Char(36)
+  type           AdjustmentType        @default(CYCLE_COUNT)
+  status         AdjustmentStatus      @default(DRAFT)
+  reason         String?               @db.VarChar(255)
+
+  lines          StockAdjustmentLine[]
+
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  approvedBy     String?               @db.Char(36)
+  rejectedAt     DateTime?
+  rejectionReason String?              @db.VarChar(255)
+  postedAt       DateTime?
+
+  createdBy      String?               @db.Char(36)
+  updatedBy      String?               @db.Char(36)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([warehouseId])
+  @@index([status])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentLine {
+  id             String          @id @default(uuid()) @db.Char(36)
+
+  adjustmentId   String          @db.Char(36)
+  adjustment     StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+
+  partId         String          @db.Char(36)
+  partCode       String?         @db.VarChar(60)
+  binLocation    String          @default("DEFAULT") @db.VarChar(40)
+
+  systemQty      Decimal         @db.Decimal(18, 3)
+  countedQty     Decimal         @db.Decimal(18, 3)
+  deltaQty       Decimal         @db.Decimal(18, 3)
+  unitCost       Decimal         @default(0) @db.Decimal(18, 4)
+  note           String?         @db.VarChar(255)
+
+  createdAt      DateTime        @default(now())
+
+  @@index([adjustmentId])
+  @@index([partId])
+  @@map("stock_adjustment_lines")
+}
+
+enum LotStatus {
+  AVAILABLE
+  QUARANTINE
+  CONSUMED
+  EXPIRED
+  BLOCKED
+}
+
+enum MovementType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  RESERVE
+  RELEASE
+  SCRAP
+  RETURN
+  QUARANTINE_IN
+  QUARANTINE_RELEASE
+  OPENING
+}
+
+enum ReservationStatus {
+  ACTIVE
+  PARTIALLY_FULFILLED
+  FULFILLED
+  RELEASED
+  EXPIRED
+}
+
+enum AdjustmentType {
+  CYCLE_COUNT
+  DAMAGE
+  WRITE_OFF
+  REVALUATION
+  OPENING_BALANCE
+}
+
+enum AdjustmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REJECTED
+}

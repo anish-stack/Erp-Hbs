@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Shipment bounded context (database: erp_shipment).
+/// orderId/customerId reference Sales/CRM; warehouseId/reservationId Inventory;
+/// pickTaskId the Warehouse service. No cross-db FKs.
+
+model Shipment {
+  id            String         @id @default(uuid()) @db.Char(36)
+  code          String         @unique @db.VarChar(30)
+  status        ShipmentStatus @default(PENDING)
+
+  orderId       String         @db.Char(36)
+  orderCode     String?        @db.VarChar(40)
+  customerId    String         @db.Char(36)
+  customerName  String?        @db.VarChar(200)
+  warehouseId   String         @db.Char(36)
+
+  carrier       String?        @db.VarChar(100)
+  trackingNumber String?       @db.VarChar(120)
+  shippingAddress String?      @db.VarChar(500)
+
+  packedWeightKg Decimal?      @db.Decimal(10, 3)
+  packageCount   Int           @default(1)
+
+  lines         ShipmentLine[]
+
+  pickedAt      DateTime?
+  packedAt      DateTime?
+  dispatchedAt  DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?        @db.VarChar(255)
+
+  notes         String?        @db.VarChar(1000)
+
+  createdBy     String?        @db.Char(36)
+  updatedBy     String?        @db.Char(36)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status])
+  @@index([orderId])
+  @@index([customerId])
+  @@map("shipments")
+}
+
+model ShipmentLine {
+  id             String   @id @default(uuid()) @db.Char(36)
+
+  shipmentId     String   @db.Char(36)
+  shipment       Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  orderLineId    String?  @db.Char(36)
+  partId         String   @db.Char(36)
+  partCode       String?  @db.VarChar(60)
+  description    String?  @db.VarChar(255)
+
+  quantity       Decimal  @db.Decimal(18, 3)
+  pickedQty      Decimal  @default(0) @db.Decimal(18, 3)
+
+  reservationId  String?  @db.Char(36)
+  pickTaskId     String?  @db.Char(36)
+
+  createdAt      DateTime @default(now())
+
+  @@index([shipmentId])
+  @@index([partId])
+  @@map("shipment_lines")
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKING
+  PICKED
+  PACKED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}

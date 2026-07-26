@@ -1,0 +1,41 @@
+'use strict';
+
+const PO_STATUS = {
+  DRAFT: 'DRAFT', PENDING_APPROVAL: 'PENDING_APPROVAL', APPROVED: 'APPROVED', REJECTED: 'REJECTED',
+  ISSUED: 'ISSUED', PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED', RECEIVED: 'RECEIVED', CLOSED: 'CLOSED', CANCELLED: 'CANCELLED'
+};
+
+const STATUS_TRANSITIONS = {
+  DRAFT: ['PENDING_APPROVAL', 'ISSUED', 'CANCELLED'],
+  PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+  APPROVED: ['ISSUED', 'CANCELLED'],
+  REJECTED: ['DRAFT'],
+  ISSUED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
+  PARTIALLY_RECEIVED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'],
+  RECEIVED: ['CLOSED'],
+  CLOSED: [],
+  CANCELLED: []
+};
+
+const GRN_STATUS = { DRAFT: 'DRAFT', SUBMITTED: 'SUBMITTED', INSPECTED: 'INSPECTED', COMPLETED: 'COMPLETED', REJECTED: 'REJECTED' };
+const INSPECTION_STATUS = { PENDING: 'PENDING', IN_PROGRESS: 'IN_PROGRESS', PASSED: 'PASSED', FAILED: 'FAILED', PARTIAL: 'PARTIAL', NOT_REQUIRED: 'NOT_REQUIRED' };
+
+const QUEUE_NAMES = { PURCHASE: 'purchase.maintenance' };
+const JOB_NAMES = { OVERDUE_SCAN: 'overdue-po-scan' };
+
+const EVENTS = {
+  PO_CREATED: 'purchase.order.created',
+  PO_APPROVED: 'purchase.order.approved',
+  PO_REJECTED: 'purchase.order.rejected',
+  PO_ISSUED: 'purchase.order.issued',
+  PO_CANCELLED: 'purchase.order.cancelled',
+  PO_CLOSED: 'purchase.order.closed',
+  PO_OVERDUE: 'purchase.order.overdue',
+  GRN_CREATED: 'purchase.grn.created',
+  GRN_INSPECTION_REQUIRED: 'quality.inspection.requested',
+  GRN_COMPLETED: 'purchase.grn.completed'
+};
+
+const CACHE = { po: (id) => `po:${id}`, pattern: 'po:*' };
+
+module.exports = { PO_STATUS, STATUS_TRANSITIONS, GRN_STATUS, INSPECTION_STATUS, QUEUE_NAMES, JOB_NAMES, EVENTS, CACHE };

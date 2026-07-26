@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ERP console design tokens — light theme only.
+  Palette: blue #2563EB primary, slate neutrals, semantic status colors.
+  No purple / violet / gold. Values are HSL channels for shadcn compatibility.
+*/
+@layer base {
+  :root {
+    --background: 210 40% 98%;        /* slate-50 app canvas */
+    --foreground: 222 47% 11%;        /* slate-900 text */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;           /* #2563EB blue-600 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;         /* slate-100 */
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;  /* slate-500/600 */
+
+    --accent: 214 95% 93%;            /* blue-100 subtle hover */
+    --accent-foreground: 221 83% 40%;
+
+    --destructive: 0 72% 51%;         /* #DC2626 red-600 */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 35%;           /* #16A34A green-600 */
+    --success-foreground: 0 0% 100%;
+    --success-soft: 138 76% 96%;
+
+    --warning: 25 95% 45%;            /* #EA580C orange-600 */
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 34 100% 95%;
+
+    --info: 192 91% 36%;              /* #0891B2 cyan-600 */
+    --info-foreground: 0 0% 100%;
+    --info-soft: 183 100% 96%;
+
+    --border: 214 32% 91%;            /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv05', 'ss01';
+  }
+  /* Tabular figures everywhere numbers matter — this is an operations tool. */
+  table, .tabular, td, th, [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+  /* Quiet, console-grade scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full border-2 border-solid border-background; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+@layer components {
+  /* the blue accent spine that marks the active module in the left rail */
+  .nav-item {
+    @apply relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-accent hover:text-accent-foreground;
+  }
+  .nav-item[data-active='true'] {
+    @apply bg-accent text-accent-foreground;
+  }
+  .nav-item[data-active='true']::before {
+    content: '';
+    @apply absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary;
+  }
+}

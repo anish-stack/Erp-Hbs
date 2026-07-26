@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// File bounded context (database: erp_file).
+/// Business logic never knows which storage provider holds the bytes.
+
+model File {
+  id            String        @id @default(uuid()) @db.Char(36)
+
+  /// Provider-agnostic object key, e.g. "purchase/2026/07/uuid-invoice.pdf"
+  storageKey    String        @unique @db.VarChar(500)
+  provider      StorageKind
+  bucket        String?       @db.VarChar(150)
+
+  originalName  String        @db.VarChar(255)
+  fileName      String        @db.VarChar(255)
+  extension     String        @db.VarChar(20)
+  mimeType      String        @db.VarChar(150)
+  category      FileCategory  @default(DOCUMENT)
+  sizeBytes     Int
+  checksum      String?       @db.VarChar(64)
+
+  visibility    FileVisibility @default(PRIVATE)
+  publicUrl     String?        @db.VarChar(700)
+
+  /// Optional binding to any record in any service.
+  entity        String?       @db.VarChar(60)
+  entityId      String?       @db.VarChar(60)
+  tag           String?       @db.VarChar(60)
+
+  width         Int?
+  height        Int?
+  variants      Json?
+  metadata      Json?
+
+  processStatus ProcessStatus @default(NONE)
+  downloadCount Int           @default(0)
+  lastAccessAt  DateTime?
+
+  uploadedBy    String        @db.Char(36)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+  deletedBy     String?       @db.Char(36)
+  purgedAt      DateTime?
+
+  shares        FileShare[]
+
+  @@index([entity, entityId])
+  @@index([uploadedBy])
+  @@index([category])
+  @@index([visibility])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("files")
+}
+
+/// Time-boxed public link for a private file.
+model FileShare {
+  id         String    @id @default(uuid()) @db.Char(36)
+  fileId     String    @db.Char(36)
+  token      String    @unique @db.VarChar(64)
+  expiresAt  DateTime
+  maxUses    Int?
+  useCount   Int       @default(0)
+  revokedAt  DateTime?
+  note       String?   @db.VarChar(255)
+  createdBy  String    @db.Char(36)
+  createdAt  DateTime  @default(now())
+
+  file       File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([expiresAt])
+  @@map("file_shares")
+}
+
+/// Physical deletes are queued so a provider outage never blocks the API.
+model PurgeTask {
+  id         String      @id @default(uuid()) @db.Char(36)
+  fileId     String?     @db.Char(36)
+  storageKey String      @db.VarChar(500)
+  provider   StorageKind
+  bucket     String?     @db.VarChar(150)
+  variants   Json?
+  attempts   Int         @default(0)
+  lastError  String?     @db.VarChar(500)
+  purgedAt   DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@index([purgedAt])
+  @@map("purge_tasks")
+}
+
+enum StorageKind {
+  R2
+  CLOUDINARY
+  LOCAL
+}
+
+enum FileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum FileCategory {
+  IMAGE
+  DOCUMENT
+  SPREADSHEET
+  INVOICE
+  CERTIFICATE
+  DATASHEET
+  AVATAR
+  OTHER
+}
+
+enum ProcessStatus {
+  NONE
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}

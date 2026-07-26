@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// ============================================================
+/// IDENTITY BOUNDED CONTEXT  (database: erp_auth)
+/// ------------------------------------------------------------
+/// Migration ownership: AUTH SERVICE ONLY.
+/// The User Service and Role Service ship an identical copy of
+/// this schema for `prisma generate` and must never run
+/// `prisma migrate` against it.
+/// ============================================================
+
+model Department {
+  id          String    @id @default(uuid()) @db.Char(36)
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(150)
+  description String?   @db.VarChar(500)
+  headUserId  String?   @db.Char(36)
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?   @db.Char(36)
+  updatedBy   String?   @db.Char(36)
+  deletedBy   String?   @db.Char(36)
+
+  users       User[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("departments")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Char(36)
+  code        String           @unique @db.VarChar(50)
+  name        String           @db.VarChar(150)
+  description String?          @db.VarChar(500)
+  isSystem    Boolean          @default(false)
+  isActive    Boolean          @default(true)
+  landingPath String           @default("/dashboard") @db.VarChar(150)
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?          @db.Char(36)
+  updatedBy   String?          @db.Char(36)
+  deletedBy   String?          @db.Char(36)
+
+  users       User[]
+  permissions RolePermission[]
+  menus       RoleMenu[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Char(36)
+  code        String           @unique @db.VarChar(100)
+  module      String           @db.VarChar(50)
+  action      String           @db.VarChar(50)
+  description String?          @db.VarChar(255)
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  roles       RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Char(36)
+  roleId       String     @db.Char(36)
+  permissionId String     @db.Char(36)
+  createdAt    DateTime   @default(now())
+  createdBy    String?    @db.Char(36)
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                 String      @id @default(uuid()) @db.Char(36)
+  employeeCode       String      @unique @db.VarChar(50)
+  firstName          String      @db.VarChar(100)
+  lastName           String?     @db.VarChar(100)
+  email              String      @unique @db.VarChar(191)
+  mobile             String?     @unique @db.VarChar(20)
+  password           String      @db.VarChar(255)
+  designation        String?     @db.VarChar(150)
+  avatarUrl          String?     @db.VarChar(500)
+  dateOfBirth        DateTime?
+  dateOfJoining      DateTime?
+  timezone           String      @default("Asia/Kolkata") @db.VarChar(64)
+  locale             String      @default("en-IN") @db.VarChar(16)
+  notes              String?     @db.VarChar(1000)
+
+  roleId             String      @db.Char(36)
+  departmentId       String?     @db.Char(36)
+  reportsToId        String?     @db.Char(36)
+
+  status             UserStatus  @default(ACTIVE)
+  isEmailVerified    Boolean     @default(false)
+  mustChangePassword Boolean     @default(false)
+  passwordChangedAt  DateTime?
+  lastLoginAt        DateTime?
+  lastLoginIp        String?     @db.VarChar(64)
+  failedLoginCount   Int         @default(0)
+  lockedUntil        DateTime?
+
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+  createdBy          String?     @db.Char(36)
+  updatedBy          String?     @db.Char(36)
+  deletedBy          String?     @db.Char(36)
+
+  role               Role        @relation(fields: [roleId], references: [id])
+  department         Department? @relation(fields: [departmentId], references: [id])
+  reportsTo          User?       @relation("Reporting", fields: [reportsToId], references: [id])
+  directReports      User[]      @relation("Reporting")
+  sessions           UserSession[]
+  passwordResets     PasswordReset[]
+
+  @@index([roleId])
+  @@index([departmentId])
+  @@index([reportsToId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserSession {
+  id            String    @id @default(uuid()) @db.Char(36)
+  userId        String    @db.Char(36)
+  familyId      String    @db.Char(36)
+  refreshJti    String    @unique @db.Char(36)
+  tokenHash     String    @db.VarChar(255)
+  accessJti     String?   @db.Char(36)
+  userAgent     String?   @db.VarChar(255)
+  ipAddress     String?   @db.VarChar(64)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?   @db.VarChar(100)
+  replacedById  String?   @db.Char(36)
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid()) @db.Char(36)
+  userId    String    @db.Char(36)
+  tokenHash String    @unique @db.VarChar(255)
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?   @db.VarChar(64)
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_resets")
+}
+
+model AuthLog {
+  id        String        @id @default(uuid()) @db.Char(36)
+  userId    String?       @db.Char(36)
+  email     String?       @db.VarChar(191)
+  event     AuthLogEvent
+  success   Boolean       @default(true)
+  reason    String?       @db.VarChar(255)
+  ipAddress String?       @db.VarChar(64)
+  userAgent String?       @db.VarChar(255)
+  createdAt DateTime      @default(now())
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("auth_logs")
+}
+
+model Menu {
+  id             String     @id @default(uuid()) @db.Char(36)
+  code           String     @unique @db.VarChar(80)
+  label          String     @db.VarChar(120)
+  icon           String?    @db.VarChar(80)
+  path           String?    @db.VarChar(191)
+  type           MenuType   @default(SIDEBAR)
+  module         String?    @db.VarChar(50)
+  permissionCode String?    @db.VarChar(100)
+  badgeKey       String?    @db.VarChar(80)
+  parentId       String?    @db.Char(36)
+  sortOrder      Int        @default(0)
+  isActive       Boolean    @default(true)
+  meta           Json?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?    @db.Char(36)
+  updatedBy      String?    @db.Char(36)
+  deletedBy      String?    @db.Char(36)
+
+  parent         Menu?      @relation("MenuTree", fields: [parentId], references: [id])
+  children       Menu[]     @relation("MenuTree")
+  roles          RoleMenu[]
+
+  @@index([type])
+  @@index([parentId])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("menus")
+}
+
+model RoleMenu {
+  id         String   @id @default(uuid()) @db.Char(36)
+  roleId     String   @db.Char(36)
+  menuId     String   @db.Char(36)
+  sortOrder  Int?
+  isVisible  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  createdBy  String?  @db.Char(36)
+
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  menu       Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, menuId])
+  @@index([menuId])
+  @@map("role_menus")
+}
+
+model BulkJob {
+  id             String        @id @default(uuid()) @db.Char(36)
+  jobId          String?       @db.VarChar(100)
+  type           BulkJobType
+  entity         String        @db.VarChar(50)
+  status         BulkJobStatus @default(QUEUED)
+  fileName       String?       @db.VarChar(255)
+  filePath       String?       @db.VarChar(500)
+  totalRows      Int           @default(0)
+  processedRows  Int           @default(0)
+  successRows    Int           @default(0)
+  failedRows     Int           @default(0)
+  errorReport    Json?
+  filters        Json?
+  message        String?       @db.VarChar(500)
+  requestedBy    String        @db.Char(36)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([requestedBy])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("bulk_jobs")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum AuthLogEvent {
+  LOGIN
+  LOGOUT
+  LOGOUT_ALL
+  REFRESH
+  REFRESH_REUSE_DETECTED
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  OTP_SENT
+  OTP_VERIFIED
+  ACCOUNT_LOCKED
+  REGISTER
+}
+
+enum MenuType {
+  SIDEBAR
+  HEADER
+  DASHBOARD_WIDGET
+  QUICK_ACTION
+}
+
+enum BulkJobType {
+  EXPORT
+  IMPORT
+}
+
+enum BulkJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
