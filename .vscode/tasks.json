@@ -1,0 +1,357 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "role",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/role-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "master",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/master-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "auth",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/auth-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "user",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/user-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "file",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/file-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "supplier",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/supplier-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "crm",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/crm-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "inventory",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/inventory-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "warehouse",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/warehouse-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "quality",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/quality-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "rfq",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/rfq-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "purchase",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/purchase-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "sales",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/sales-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "shipment",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/shipment-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "finance",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/finance-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "notification",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/notification-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "report",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/report-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "dashboard",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/dashboard-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "audit",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/audit-service"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "gateway",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/erp-backend/services/api-gateway"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "new",
+        "focus": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "Core (role+master+auth+user)",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "role",
+        "master",
+        "auth",
+        "user"
+      ]
+    },
+    {
+      "label": "Sales flow (core+file+supplier+crm+inventory+warehouse+sales)",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "role",
+        "master",
+        "auth",
+        "user",
+        "file",
+        "supplier",
+        "crm",
+        "inventory",
+        "warehouse",
+        "sales"
+      ]
+    },
+    {
+      "label": "ALL 20 services",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "role",
+        "master",
+        "auth",
+        "user",
+        "file",
+        "supplier",
+        "crm",
+        "inventory",
+        "warehouse",
+        "quality",
+        "rfq",
+        "purchase",
+        "sales",
+        "shipment",
+        "finance",
+        "notification",
+        "report",
+        "dashboard",
+        "audit",
+        "gateway"
+      ]
+    }
+  ]
+}

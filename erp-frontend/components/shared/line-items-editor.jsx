@@ -19,8 +19,17 @@ import { formatMoney } from '@/lib/utils';
 export function LineItemsEditor({ value = [], onChange }) {
   const fetchParts = async (q) => {
     const res = await partsApi.search(q || '');
-    const list = Array.isArray(res) ? res : res?.items || [];
-    return list.map((p) => ({ id: p.id, label: `${p.code || p.partCode} — ${p.name || p.description || ''}`, sub: p.manufacturer?.name, raw: p }));
+    console.log(res)
+    // GET /master/parts/search response shape:
+    // { success, message, data: { term, normalized, matchType, count, matches: [...] }, requestId, timestamp }
+    const list = res?.items?.matches || res?.matches || [];
+    console.log("list",list)
+    return list.map((p) => ({
+      id: p.id,
+      label: `${p.partNumber} — ${p.description || ''}`,
+      sub: p.manufacturer?.name,
+      raw: p,
+    }));
   };
 
   const addRow = () => onChange([...value, { partId: '', partCode: '', description: '', quantity: 1, unitPrice: 0, discountPct: 0, taxRatePct: 0, uomCode: 'PCS' }]);
@@ -56,10 +65,10 @@ export function LineItemsEditor({ value = [], onChange }) {
                 placeholder="Search part…"
                 onChange={(id, item) => updateRow(idx, {
                   partId: id,
-                  partCode: item?.raw?.code || item?.raw?.partCode || '',
-                  description: item?.raw?.name || item?.raw?.description || '',
-                  partNumber: item?.raw?.code || item?.raw?.partCode || '',
-                  uomCode: item?.raw?.uom?.code || item?.raw?.uomCode || 'PCS'
+                  partCode: item?.raw?.partNumber || '',
+                  description: item?.raw?.description || '',
+                  partNumber: item?.raw?.partNumber || '',
+                  uomCode: item?.raw?.uom?.code || 'PCS'
                 })}
               />
             </div>

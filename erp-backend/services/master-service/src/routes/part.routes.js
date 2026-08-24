@@ -17,7 +17,14 @@ router.get('/', authorize(P.part.VIEW), validate(v.list, 'query'), PartControlle
 router.post('/', authorize(P.part.CREATE), validate(v.create), PartController.create);
 
 router.get('/:id', authorize(P.part.VIEW), validate(v.idParam, 'params'), PartController.get);
-router.put('/:id', authorize(P.part.UPDATE), validate(v.idParam, 'params'), validate(v.update), PartController.update);
+router.put('/:id', (req, res, next) => {
+    console.log('========== PART UPDATE ==========');
+    console.log('ID:', req.params.id);
+    console.log('Body:', req.body);
+
+    console.log('=================================');
+    next();
+  }, authorize(P.part.UPDATE), validate(v.idParam, 'params'), validate(v.update), PartController.update);
 router.delete('/:id', authorize(P.part.DELETE), validate(v.idParam, 'params'), PartController.remove);
 
 router.post(

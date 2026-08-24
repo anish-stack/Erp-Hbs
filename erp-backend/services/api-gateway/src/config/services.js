@@ -14,6 +14,7 @@ const SERVICES = [
   { key: 'permissions', prefix: '/permissions', name: 'Role & Permission Service', urlEnv: 'ROLE_SERVICE_URL' },
   { key: 'menus', prefix: '/menus', name: 'Role & Permission Service', urlEnv: 'ROLE_SERVICE_URL' },
   { key: 'master', prefix: '/master', name: 'Master Data Service', urlEnv: 'MASTER_SERVICE_URL' },
+  
   { key: 'suppliers', prefix: '/suppliers', name: 'Supplier Service', urlEnv: 'SUPPLIER_SERVICE_URL' },
   { key: 'rfq', prefix: '/rfq', name: 'RFQ Service', urlEnv: 'RFQ_SERVICE_URL' },
   { key: 'leads', prefix: '/leads', name: 'Customer CRM Service', urlEnv: 'CRM_SERVICE_URL' },

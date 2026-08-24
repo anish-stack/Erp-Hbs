@@ -26,7 +26,7 @@ const BreadcrumbPage = React.forwardRef(({ className, ...props }, ref) => (
 BreadcrumbPage.displayName = 'BreadcrumbPage';
 
 const BreadcrumbSeparator = ({ className, ...props }) => (
-  <li role="presentation" className={cn('[&>svg]:size-3.5', className)} {...props}><ChevronRight /></li>
+  <li role="presentation" className={cn('[&>svg]:size-3.5', className)} {...props}> - </li>
 );
 
 export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator };

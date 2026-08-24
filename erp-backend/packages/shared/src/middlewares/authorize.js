@@ -15,7 +15,7 @@ function hasPermission(userPermissions = [], required) {
 function authorize(...permissions) {
   return function authorizeMiddleware(req, res, next) {
     if (!req.user) return next(ApiError.unauthorized(MESSAGES.AUTH.UNAUTHORIZED));
-    console.log("User permissions", req.user.permissions);
+   
     const granted = permissions.every((perm) => hasPermission(req.user.permissions, perm));
     if (!granted) {
       return next(

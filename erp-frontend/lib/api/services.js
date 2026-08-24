@@ -71,36 +71,36 @@ export const permissionsApi = {
 
 /* ------------------------------ Master ------------------------------ */
 export const partsApi = {
-  list: list('/parts'),
-  get: getOne('/parts'),
-  create: create('/parts'),
-  update: update('/parts'),
-  remove: remove('/parts'),
-  search: (q) => api.get('/parts/search', { params: { search: q, limit: 10 } }).then(unwrapList),
-  stats: () => api.get('/parts/stats').then(unwrap)
+  list: list('/master/parts'),
+  get: getOne('/master/parts'),
+  create: create('/master/parts'),
+  update: update('/master/parts'),
+  remove: remove('/master/parts'),
+  search: (q) => api.get('/master/parts/search', { params: { search: q, limit: 10 } }).then(unwrapList),
+  stats: () => api.get('/master/parts/stats').then(unwrap)
 };
 export const masterApi = {
-  manufacturers: (params) => api.get('/manufacturers', { params }).then(unwrapList),
-  createManufacturer: create('/manufacturers'),
-  updateManufacturer: update('/manufacturers'),
-  removeManufacturer: remove('/manufacturers'),
+  manufacturers: (params) => api.get('/master/manufacturers', { params }).then(unwrapList),
+  createManufacturer: create('/master/manufacturers'),
+  updateManufacturer: update('/master/manufacturers'),
+  removeManufacturer: remove('/master/manufacturers'),
 
-  categories: (params) => api.get('/categories', { params }).then(unwrapList),
-  categoryTree: () => api.get('/categories/tree').then(unwrap),
-  createCategory: create('/categories'),
-  updateCategory: update('/categories'),
-  removeCategory: remove('/categories'),
+  categories: (params) => api.get('/master/categories', { params }).then(unwrapList),
+  categoryTree: () => api.get('/master/categories/tree').then(unwrap),
+  createCategory: create('/master/categories'),
+  updateCategory: update('/master/categories'),
+  removeCategory: remove('/master/categories'),
 
-  uoms: (params) => api.get('/uoms', { params }).then(unwrapList),
-  createUom: create('/uoms'),
-  updateUom: update('/uoms'),
+  uoms: (params) => api.get('/master/uoms', { params }).then(unwrapList),
+  createUom: create('/master/uoms'),
+  updateUom: update('/master/uoms'),
 
-  taxRates: (params) => api.get('/tax-rates', { params }).then(unwrapList),
-  createTaxRate: create('/tax-rates'),
-  updateTaxRate: update('/tax-rates'),
+  taxRates: (params) => api.get('/master/tax-rates', { params }).then(unwrapList),
+  createTaxRate: create('/master/tax-rates'),
+  updateTaxRate: update('/master/tax-rates'),
 
-  currencies: (params) => api.get('/currencies', { params }).then(unwrapList),
-  createCurrency: create('/currencies'),
+  currencies: (params) => api.get('/master/currencies', { params }).then(unwrapList),
+  createCurrency: create('/master/currencies'),
 
   settings: (params) => api.get('/settings', { params }).then(unwrapList),
   updateSettingsBulk: (settingsArr) => api.put('/settings/bulk', { settings: settingsArr }).then(unwrap)
@@ -123,7 +123,7 @@ export const customersApi = {
   list: list('/customers'),
   get: getOne('/customers'),
   create: create('/customers'),
-  update: update('/customers'),
+  update:  (id ,body) => api.put(`/customers/${id}`,body).then(unwrap),
   remove: remove('/customers'),
   stats: () => api.get('/customers/stats').then(unwrap),
   options: () => api.get('/customers/options').then(unwrap)

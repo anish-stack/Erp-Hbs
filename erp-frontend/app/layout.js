@@ -13,7 +13,7 @@ const plex = IBM_Plex_Sans({
 });
 
 export const metadata = {
-  title: 'Nexus ERP — Components Trading',
+  title: 'The Chips Vally — Components Trading',
   description: 'Operations console for an electronic-components trading business.'
 };
 

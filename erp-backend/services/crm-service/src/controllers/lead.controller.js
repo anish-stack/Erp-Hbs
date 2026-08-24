@@ -46,10 +46,20 @@ class LeadController {
     return ApiResponse.ok(res, lead, `Lead moved to ${lead.stage}`);
   });
 
-  static followUp = asyncHandler(async (req, res) => {
-    const lead = await LeadService.logFollowUp(req.params.id, req.body.notes, req.body.nextFollowUpAt, req.user);
+static followUp = asyncHandler(async (req, res) => {
+    const { notes, nextFollowUpAt, dueAt } = req.body;
+ 
+    const lead = await LeadService.logFollowUp(
+      req.params.id,
+      notes,
+      nextFollowUpAt,
+      dueAt,
+      req.user
+    );
+ 
     return ApiResponse.ok(res, lead, 'Follow-up logged');
   });
+ 
 
   static convert = asyncHandler(async (req, res) => {
     const result = await ConversionService.convert(req.params.id, req.body, req.user);

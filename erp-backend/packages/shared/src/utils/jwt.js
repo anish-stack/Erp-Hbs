@@ -24,7 +24,7 @@ function signAccessToken(payload) {
   const jti = randomUUID();
   const token = jwt.sign({ ...payload, jti, type: 'access' }, accessSecret(), {
     ...baseOptions(),
-    expiresIn: env.str('JWT_ACCESS_EXPIRES_IN', '15m')
+    expiresIn: env.str('JWT_ACCESS_EXPIRES_IN', '7h')
   });
   return { token, jti };
 }

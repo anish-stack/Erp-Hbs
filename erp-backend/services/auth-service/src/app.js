@@ -7,7 +7,7 @@ const config = require('./config');
 const routes = require('./routes');
 const { isHealthy } = require('./config/prisma');
 const { buildDocument, swaggerUiOptions } = require('./swagger');
-
+const cookieParser = require('cookie-parser');
 function createApp() {
   const app = express();
 
@@ -17,6 +17,7 @@ function createApp() {
   app.use(express.urlencoded({ extended: true, limit: config.bodyLimit }));
   app.use(middlewares.xssSanitizer);
   app.use(middlewares.requestLogger);
+app.use(cookieParser());
 
   app.use(
     healthRouter({

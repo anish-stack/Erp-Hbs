@@ -31,6 +31,7 @@ class CustomerController {
   });
 
   static update = asyncHandler(async (req, res) => {
+    console.log(req.body)
     const customer = await CustomerService.update(req.params.id, req.body, req.user);
     return ApiResponse.ok(res, customer, 'Customer updated');
   });

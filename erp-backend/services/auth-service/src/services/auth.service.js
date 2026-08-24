@@ -195,7 +195,7 @@ class AuthService {
 
     await publisher.userLoggedIn(user, context);
 
-    return { user: publicUser(user), tokens };
+  return { user: publicUser(user), tokens };
   }
 
   /** Rotating refresh with reuse detection: a replayed token kills the whole family. */

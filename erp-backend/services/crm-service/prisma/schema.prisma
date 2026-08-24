@@ -33,7 +33,7 @@ model Lead {
   assignedAt      DateTime?
   lastContactedAt DateTime?
   nextFollowUpAt  DateTime?
-
+  followUpHistory String?      @db.LongText
   lostReason      String?      @db.VarChar(500)
   convertedAt     DateTime?
   convertedToId   String?      @db.Char(36)

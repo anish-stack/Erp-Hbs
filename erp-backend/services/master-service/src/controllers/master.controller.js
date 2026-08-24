@@ -23,6 +23,7 @@ class MasterController {
   });
 
   static createManufacturer = asyncHandler(async (req, res) => {
+    console.log(req.body)
     const row = await ManufacturerService.create(req.body, req.user.id);
     return ApiResponse.created(res, row, 'Manufacturer created');
   });

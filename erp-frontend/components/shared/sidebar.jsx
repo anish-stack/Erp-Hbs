@@ -14,7 +14,7 @@ function Brand() {
         <Icons.CircuitBoard className="h-4 w-4" />
       </div>
       <div className="leading-tight">
-        <p className="text-sm font-semibold tracking-tight text-slate-900">Nexus ERP</p>
+        <p className="text-sm font-semibold tracking-tight text-slate-900">The Chips Vally</p>
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Components trading</p>
       </div>
     </div>

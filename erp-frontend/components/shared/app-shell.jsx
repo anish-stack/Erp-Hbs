@@ -11,7 +11,7 @@ export function AppShell({ children }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             {/* Catches a crash inside the page content and shows which area failed,
                 without taking down the sidebar/topbar around it. */}
             <ErrorBoundary name="Page content">{children}</ErrorBoundary>

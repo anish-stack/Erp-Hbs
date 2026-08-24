@@ -116,8 +116,23 @@ export function unwrapList(response) {
 }
 /** Pull a human-readable message out of any axios error. */
 export function apiError(error) {
+  const data = error?.response?.data;
+
+  // Joi / backend validation errors
+  if (Array.isArray(data?.details) && data.details.length > 0) {
+    return data.details
+      .map((item) => {
+        if (item.field && item.message) {
+          return `${item.message}`;
+        }
+
+        return item.message || String(item);
+      })
+      .join(', ');
+  }
+
   return (
-    error?.response?.data?.message ||
+    data?.message ||
     error?.message ||
     'Something went wrong. Please try again.'
   );

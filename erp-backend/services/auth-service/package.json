@@ -21,6 +21,7 @@
     "@erp/shared": "file:../../packages/shared",
     "@prisma/client": "^5.22.0",
     "bullmq": "^5.28.1",
+    "cookie-parser": "^1.4.7",
     "express": "^4.21.1",
     "joi": "^17.13.3",
     "nodemailer": "^6.9.16",

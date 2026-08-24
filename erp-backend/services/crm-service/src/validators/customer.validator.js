@@ -56,7 +56,7 @@ module.exports = {
     segment: Joi.string().valid(...Object.values(CUSTOMER_SEGMENT)),
     ownerId: Joi.string().uuid(),
     notes: Joi.string().max(2000).allow('', null)
-  }).min(1),
+  }),
 
   setStatus: Joi.object({
     status: Joi.string().valid(...Object.values(CUSTOMER_STATUS)).required(),

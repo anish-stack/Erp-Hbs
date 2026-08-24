@@ -1,4 +1,4 @@
-# Nexus ERP — Frontend
+# The Chips Vally — Frontend
 
 Operations console for the 20-service ERP backend. Next.js (App Router,
 **JavaScript only**), Tailwind CSS v3, shadcn/ui, light theme, IBM Plex Sans.

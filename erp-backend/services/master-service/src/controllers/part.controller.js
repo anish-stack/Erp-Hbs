@@ -10,7 +10,7 @@ class PartController {
   });
 
   static search = asyncHandler(async (req, res) => {
-    const result = await PartService.search(req.query.q, {
+    const result = await PartService.search(req.query.search, {
       limit: req.query.limit,
       categoryPath: req.query.categoryPath
     });

@@ -3,12 +3,47 @@
 const { prisma } = require('../config/prisma');
 
 const LIST_SELECT = {
-  id: true, code: true, companyName: true, contactName: true, email: true, phone: true,
-  source: true, stage: true, estimatedValue: true, currencyCode: true, probability: true,
-  ownerId: true, nextFollowUpAt: true, lastContactedAt: true, createdAt: true,
-  _count: { select: { activities: true } }
-};
+  id: true,
+  code: true,
+  companyName: true,
+  contactName: true,
+  email: true,
+  phone: true,
+  designation: true,
 
+  source: true,
+  stage: true,
+
+  estimatedValue: true,
+  currencyCode: true,
+  probability: true,
+
+  ownerId: true,
+  nextFollowUpAt: true,
+  lastContactedAt: true,
+
+  followUpHistory: true,
+
+  city: true,
+  state: true,
+  country: true,
+
+  lostReason: true,
+  convertedAt: true,
+  convertedToId: true,
+
+  tags: true,
+  notes: true,
+
+  createdAt: true,
+  updatedAt: true,
+
+  _count: {
+    select: {
+      activities: true
+    }
+  }
+};
 class LeadRepository {
   static async paginate({ where, skip, take, orderBy }) {
     const [items, total] = await prisma.$transaction([

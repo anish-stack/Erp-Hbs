@@ -17,6 +17,7 @@ async function call(path, { method = 'GET', body = null, user = null } = {}) {
   }
 
   try {
+    console.log("{config.internal.masterServiceUrl",config.internal.masterServiceUrl)
     const response = await fetch(`${config.internal.masterServiceUrl}${path}`, {
       method, headers, body: body ? JSON.stringify(body) : undefined, signal: controller.signal
     });
@@ -37,6 +38,7 @@ async function call(path, { method = 'GET', body = null, user = null } = {}) {
 
 class MasterClient {
   static async nextCustomerCode(user) {
+    console.log(config.basePath)
     const result = await call(`${config.basePath}/master/sequences/CUSTOMER/next`, { method: 'POST', body: { count: 1 }, user });
     return result.first;
   }

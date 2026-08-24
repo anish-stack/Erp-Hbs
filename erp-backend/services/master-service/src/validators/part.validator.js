@@ -32,7 +32,7 @@ module.exports = {
   }),
 
   search: Joi.object({
-    q: Joi.string().min(2).max(120).required(),
+    search: Joi.string().min(2).max(120).required(),
     limit: Joi.number().integer().min(1).max(50),
     categoryPath: Joi.string().max(500)
   }),
