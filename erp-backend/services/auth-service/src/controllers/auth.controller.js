@@ -48,11 +48,12 @@ class AuthController {
 
   static me = asyncHandler(async (req, res) => {
     const user = await AuthService.profile(req.user.id);
+    console.log("User data",user)
     return ApiResponse.ok(res, user, 'Profile fetched');
   });
 
   static permissions = asyncHandler(async (req, res) => {
-    console.log(req.user)
+    console.log("User permissions", req.user);
     const permissions = await AuthService.permissions(req.user.id);
     return ApiResponse.ok(res, { permissions }, 'Permissions fetched');
   });

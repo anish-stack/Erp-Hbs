@@ -303,13 +303,18 @@ class AuthService {
     return publicUser(user);
   }
 
-  static async permissions(userId) {
-    return cache.remember(CACHE_KEYS.userPermissions(userId), config.security.permissionCacheTtl, async () => {
-      const user = await UserRepository.findById(userId);
-      if (!user) throw ApiError.notFound('User not found');
-      return user.role.permissions.map((rp) => rp.permission.code);
-    });
+static async permissions(userId) {
+  const user = await UserRepository.findById(userId,{withRole: true});
+
+  console.log("User role permissions", user);
+
+  if (!user) {
+    throw ApiError.notFound("User not found");
   }
+
+  return user.role.permissions.map((rp) => rp.permission.code);
+}
+
 
   static async changePassword(userId, { currentPassword, newPassword }, context = {}) {
     const user = await UserRepository.findById(userId, { withRole: false });

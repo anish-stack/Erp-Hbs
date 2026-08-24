@@ -34,7 +34,7 @@ module.exports = {
   }),
 
   login: Joi.object({
-     email:Joi.string().email({ tlds: { allow: false } }).required(),
+    email:Joi.string().email({ tlds: { allow: false } }).required(),
     password: Joi.string().min(1).max(72).required()
   }),
 
