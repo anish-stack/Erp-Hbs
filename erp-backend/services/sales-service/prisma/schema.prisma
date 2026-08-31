@@ -55,7 +55,7 @@ model QuotationLine {
   partId       String    @db.Char(36)
   partCode     String?   @db.VarChar(60)
   description  String?   @db.VarChar(255)
-
+  manufacturer String?   @db.VarChar(255)
   quantity     Decimal   @db.Decimal(18, 3)
   unitPrice    Decimal   @db.Decimal(18, 4)
   discountPct  Decimal   @default(0) @db.Decimal(6, 3)

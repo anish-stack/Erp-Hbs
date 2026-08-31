@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+
 import { DataTable } from '@/components/shared/data-table';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 
@@ -19,14 +20,68 @@ export function ResourceList({
 }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const params = {
-    page,
-    limit,
-    ...(search.trim() ? { search: search.trim() } : {}),
-    ...extraParams,
-  };
+  /**
+   * Debounce search
+   *
+   * Rules:
+   * - Empty => immediately clear search
+   * - 1-2 chars => don't call API
+   * - 3+ chars => call API after 350ms
+   */
+  useEffect(() => {
+    const trimmed = search.trim();
 
+    const timer = setTimeout(() => {
+      if (trimmed === '') {
+        setDebouncedSearch('');
+        setPage(1);
+        return;
+      }
+
+      if (trimmed.length >= 3) {
+        setDebouncedSearch(trimmed);
+        setPage(1);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [search]);
+
+  /**
+   * API params
+   */
+  const params = useMemo(() => {
+    return {
+      page,
+      limit,
+      ...(debouncedSearch
+        ? {
+            search: debouncedSearch,
+          }
+        : {}),
+      ...extraParams,
+    };
+  }, [page, limit, debouncedSearch, extraParams]);
+
+  /**
+   * React Query
+   *
+   * IMPORTANT:
+   * params is part of queryKey.
+   * So when debouncedSearch changes:
+   *
+   * "abc"
+   *    ↓
+   * debouncedSearch = "abc"
+   *    ↓
+   * queryKey changes
+   *    ↓
+   * fetcher(params)
+   */
   const {
     data,
     isLoading,
@@ -49,7 +104,6 @@ export function ResourceList({
 
   const handleSearchChange = (value) => {
     setSearch(value);
-    setPage(1);
   };
 
   const handlePageChange = (nextPage) => {

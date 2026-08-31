@@ -222,7 +222,7 @@ export default function LeadForm({ mode = "create", leadId }) {
           ? String(item.probability)
           : "10",
 
-      categoryIds: form.categoryIds,
+  categoryIds: Array.isArray(item.categoryIds) ? item.categoryIds : [],
       city: item.city || "",
       state: item.state || "",
       country: item.country || "India",
@@ -612,6 +612,7 @@ export default function LeadForm({ mode = "create", leadId }) {
 
             <Field
               label="Owner ID"
+            
               description="Leave empty to assign to the current user."
             >
               <div className="relative">
@@ -620,6 +621,7 @@ export default function LeadForm({ mode = "create", leadId }) {
                 <Input
                   className="pl-9"
                   value={form.ownerId}
+                  disabled={true}
                   onChange={(e) => set("ownerId", e.target.value)}
                   placeholder="User UUID"
                 />

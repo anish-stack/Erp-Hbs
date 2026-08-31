@@ -5,5 +5,6 @@ module.exports = {
   password: require('./password'),
   pagination: require('./pagination'),
   queryBuilder: require('./queryBuilder'),
-  sanitize: require('./sanitize')
+  sanitize: require('./sanitize'),
+  mailer:require("./mailer")
 };

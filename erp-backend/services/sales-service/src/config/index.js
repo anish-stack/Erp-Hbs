@@ -10,10 +10,19 @@ module.exports = {
   bodyLimit: env.str('BODY_LIMIT', '1mb'),
   shutdownTimeoutMs: env.int('SHUTDOWN_TIMEOUT_MS', 10000),
   cacheTtl: env.int('SALES_CACHE_TTL', 300),
-
+  appBaseUrl:env.str('BASE_URL',''),
   defaultWarehouseId: env.str('DEFAULT_WAREHOUSE_ID', '') || null,
   autoReserveOnConfirm: env.bool('AUTO_RESERVE_ON_CONFIRM', true),
   quotationValidDays: env.int('QUOTATION_VALID_DAYS', 15),
+  mail: {
+    enabled: env.bool('EMAIL_ENABLED', true),
+    host: env.str('SMTP_HOST', ''),
+    port: env.int('SMTP_PORT', 587),
+    secure: env.bool('SMTP_SECURE', false),
+    user: env.str('SMTP_USER', ''),
+    pass: env.str('SMTP_PASS', ''),
+    from: env.str('MAIL_FROM', 'ERP System <no-reply@example.com>')
+  },
 
   internal: {
     masterServiceUrl: env.str('MASTER_SERVICE_URL', 'http://127.0.0.1:4004'),

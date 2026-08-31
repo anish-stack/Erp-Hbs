@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, FileText, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/shared/page-header';
@@ -15,6 +15,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 import { salesApi, customersApi } from '@/lib/api/services';
 import { apiError } from '@/lib/api/client';
@@ -29,6 +37,9 @@ export default function NewQuotationPage() {
     notes: '',
     lines: [],
   });
+
+  const [createdQuotation, setCreatedQuotation] = useState(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   const fetchCustomers = async (q) => {
     const res = await customersApi.list({
@@ -65,9 +76,11 @@ export default function NewQuotationPage() {
         })),
       }),
 
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const quotation = res?.data || res;
       toast.success('Quotation created successfully');
-      router.push('/sales/quotations');
+      setCreatedQuotation(quotation);
+      setShowSuccessDialog(true);
     },
 
     onError: (error) => {
@@ -108,6 +121,15 @@ export default function NewQuotationPage() {
     }
 
     mutation.mutate();
+  };
+
+  const handleViewPdf = () => {
+    if (!createdQuotation?.id) return;
+    window.open(`/api/quotations/${createdQuotation.id}/pdf`, '_blank');
+  };
+
+  const handleGoBack = () => {
+    router.push('/sales/quotations');
   };
 
   return (
@@ -243,6 +265,50 @@ export default function NewQuotationPage() {
           </div>
         </div>
       </form>
+
+      {/* Success Dialog — view PDF or go back */}
+      <Dialog
+        open={showSuccessDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowSuccessDialog(false);
+            handleGoBack();
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <DialogTitle>Quotation created</DialogTitle>
+            </div>
+            <DialogDescription>
+              {createdQuotation?.code
+                ? `${createdQuotation.code} has been created successfully.`
+                : 'The quotation has been created successfully.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowSuccessDialog(false);
+                handleGoBack();
+              }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Go back to list
+            </Button>
+
+            <Button type="button" onClick={handleViewPdf}>
+              <FileText className="mr-2 h-4 w-4" />
+              View PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,25 +1,44 @@
-'use strict';
+"use strict";
 
-const { prisma } = require('../config/prisma');
+const { prisma } = require("../config/prisma");
 
 const LIST_SELECT = {
-  id: true, code: true, legalName: true, tradeName: true, type: true, status: true,
-  segment: true, gstin: true, email: true, phone: true, currencyCode: true,
-  paymentTermDays: true, creditLimit: true, creditUsed: true, ownerId: true, createdAt: true
+  id: true,
+  code: true,
+  legalName: true,
+  tradeName: true,
+  type: true,
+  status: true,
+  segment: true,
+  gstin: true,
+  email: true,
+  phone: true,
+  currencyCode: true,
+  paymentTermDays: true,
+  creditLimit: true,
+  creditUsed: true,
+  ownerId: true,
+  createdAt: true,
 };
 
 const DETAIL_INCLUDE = {
   addresses: { where: { deletedAt: null } },
-  contacts: { where: { deletedAt: null }, orderBy: { isPrimary: 'desc' } },
-  creditLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
-  activities: { orderBy: { createdAt: 'desc' }, take: 20 }
+  contacts: { where: { deletedAt: null }, orderBy: { isPrimary: "desc" } },
+  creditLogs: { orderBy: { createdAt: "desc" }, take: 20 },
+  activities: { orderBy: { createdAt: "desc" }, take: 20 },
 };
 
 class CustomerRepository {
   static async paginate({ where, skip, take, orderBy }) {
     const [items, total] = await prisma.$transaction([
-      prisma.customer.findMany({ where, skip, take, orderBy, select: LIST_SELECT }),
-      prisma.customer.count({ where })
+      prisma.customer.findMany({
+        where,
+        skip,
+        take,
+        orderBy,
+        select: LIST_SELECT,
+      }),
+      prisma.customer.count({ where }),
     ]);
     return { items, total };
   }
@@ -27,7 +46,7 @@ class CustomerRepository {
   static async findById(id, { detailed = false } = {}) {
     return prisma.customer.findFirst({
       where: { id, deletedAt: null },
-      ...(detailed ? { include: DETAIL_INCLUDE } : {})
+      ...(detailed ? { include: DETAIL_INCLUDE } : {}),
     });
   }
 
@@ -41,22 +60,84 @@ class CustomerRepository {
 
   static async options() {
     return prisma.customer.findMany({
-      where: { deletedAt: null, status: 'ACTIVE' },
-      orderBy: { legalName: 'asc' },
-      select: { id: true, code: true, legalName: true, currencyCode: true, creditLimit: true, creditUsed: true }
+      where: { deletedAt: null, status: "ACTIVE" },
+      orderBy: { legalName: "asc" },
+      select: {
+        id: true,
+        code: true,
+        legalName: true,
+        currencyCode: true,
+        creditLimit: true,
+        creditUsed: true,
+      },
     });
   }
 
   static async create(data, actorId) {
-    return prisma.customer.create({ data: { ...data, createdBy: actorId, updatedBy: actorId }, include: DETAIL_INCLUDE });
+    return prisma.customer.create({
+      data: { ...data, createdBy: actorId, updatedBy: actorId },
+      include: DETAIL_INCLUDE,
+    });
   }
 
   static async update(id, data, actorId) {
-    return prisma.customer.update({ where: { id }, data: { ...data, updatedBy: actorId }, include: DETAIL_INCLUDE });
+    return prisma.customer.update({
+      where: { id },
+      data: { ...data, updatedBy: actorId },
+      include: DETAIL_INCLUDE,
+    });
   }
 
   static async softDelete(id, actorId) {
-    return prisma.customer.update({ where: { id }, data: { deletedAt: new Date(), updatedBy: actorId, status: 'INACTIVE' } });
+    return prisma.customer.update({
+      where: { id },
+      data: { deletedAt: new Date(), updatedBy: actorId, status: "INACTIVE" },
+    });
+  }
+
+  static async findByCodeIncludingDeleted(code) {
+    return prisma.customer.findUnique({
+      where: {
+        code,
+      },
+    });
+  }
+
+  static async findByGstinIncludingDeleted(gstin) {
+    return prisma.customer.findUnique({
+      where: {
+        gstin,
+      },
+    });
+  }
+  static async restore(id, userId) {
+    return prisma.customer.update({
+      where: {
+        id,
+      },
+      data: {
+        deletedAt: null,
+        updatedBy: userId,
+      },
+    });
+  }
+  static async findMany({
+    where = {},
+    orderBy = { createdAt: "desc" },
+    detailed = false,
+  } = {}) {
+    return prisma.customer.findMany({
+      where,
+      orderBy,
+      include: detailed
+        ? {
+            addresses: true,
+            contacts: true,
+            creditLogs: true,
+            activities: true,
+          }
+        : undefined,
+    });
   }
 
   /** Atomic credit adjustment: locks the row so concurrent sales cannot both pass a limit check. */
@@ -71,31 +152,46 @@ class CustomerRepository {
       const customer = rows[0];
       const newUsed = Number(customer.creditUsed) + delta;
 
-      await tx.customer.update({ where: { id }, data: { creditUsed: newUsed } });
+      await tx.customer.update({
+        where: { id },
+        data: { creditUsed: newUsed },
+      });
 
       return {
         creditLimit: Number(customer.creditLimit),
         creditUsed: newUsed,
         available: Number(customer.creditLimit) - newUsed,
-        breached: !customer.creditHoldOverride && newUsed > Number(customer.creditLimit)
+        breached:
+          !customer.creditHoldOverride &&
+          newUsed > Number(customer.creditLimit),
       };
     });
   }
 
   static async stats() {
     const [byStatus, bySegment, totals] = await prisma.$transaction([
-      prisma.customer.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true } }),
-      prisma.customer.groupBy({ by: ['segment'], where: { deletedAt: null }, _count: { _all: true } }),
+      prisma.customer.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      }),
+      prisma.customer.groupBy({
+        by: ["segment"],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      }),
       prisma.customer.aggregate({
         where: { deletedAt: null },
         _count: { _all: true },
-        _sum: { creditLimit: true, creditUsed: true }
-      })
+        _sum: { creditLimit: true, creditUsed: true },
+      }),
     ]);
     return { byStatus, bySegment, totals };
   }
 
-  static get LIST_SELECT() { return LIST_SELECT; }
+  static get LIST_SELECT() {
+    return LIST_SELECT;
+  }
 }
 
 module.exports = CustomerRepository;

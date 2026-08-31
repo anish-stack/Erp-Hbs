@@ -8,7 +8,13 @@ const PUBLIC_ROUTES = [
   { method: 'POST', path: '/auth/reset-password' },
   { method: 'POST', path: '/auth/verify-otp' },
   { method: 'POST', path: '/auth/send-otp' },
-  { method: 'POST', path: '/auth/resend-otp' }
+  { method: 'POST', path: '/auth/resend-otp' },
+
+   // Public quotation
+  { method: 'GET', path: '/sales/public/:id/pdf' },
+  { method: 'GET', path: '/sales/public/:id/view' },
+  { method: 'GET', path: '/sales/public/:id/accept' },
+  { method: 'GET', path: '/sales/public/:id/reject' }
 ];
 
 const FORWARD_HEADERS = {

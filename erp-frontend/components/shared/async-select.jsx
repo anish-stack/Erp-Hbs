@@ -15,12 +15,16 @@ import { cn } from '@/lib/utils';
   fetcher(query) => Promise<Array<{ id, label, sub? }>>
   Pass a static `options` array instead of `fetcher` for small fixed lists.
 */
-export function AsyncSelect({ value, onChange, fetcher, options, placeholder = 'Select…', searchPlaceholder = 'Search…', disabled }) {
+export function AsyncSelect({ value, onChange, fetcher, options, placeholder = 'Select…', searchPlaceholder = 'Search…', disabled, defaultLabel = '' }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [items, setItems] = useState(options || []);
   const [loading, setLoading] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState('');
+  const [selectedLabel, setSelectedLabel] = useState(defaultLabel);   // init from prop
+
+  useEffect(() => {
+    setSelectedLabel(defaultLabel);   // parent label change pe sync
+  }, [defaultLabel]);
 
   useEffect(() => {
     if (!fetcher || !open) return;

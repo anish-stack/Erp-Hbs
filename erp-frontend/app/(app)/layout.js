@@ -1,31 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
+import { Loader2 } from 'lucide-react';
 import { AppShell } from '@/components/shared/app-shell';
 
-/*
-  Route guard for every authenticated page. While the session resolves we show a
-  splash; unauthenticated users are bounced to /login. Fine-grained per-action
-  gating is handled by <Protected> inside pages.
-*/
 export default function AppLayout({ children }) {
-  const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) router.replace('/login');
-  }, [loading, isAuthenticated, router]);
-
-  if (loading || !isAuthenticated) {
+  // Session resolve hone tak loading
+  if (loading) {
     return (
       <div className="flex h-dvh items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Middleware normally unauthenticated user ko /login bhej dega.
+  // Ye fallback client-side protection ke liye hai.
+
 
   return <AppShell>{children}</AppShell>;
 }

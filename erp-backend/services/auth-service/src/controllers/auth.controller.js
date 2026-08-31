@@ -27,6 +27,7 @@ class AuthController {
 
   static refresh = asyncHandler(async (req, res) => {
     const token = refreshTokenFrom(req);
+    console.log("Token and refres",token)
     if (!token) throw ApiError.badRequest('Refresh token is required');
     const result = await AuthService.refresh(token, contextOf(req));
     return ApiResponse.ok(res, result, 'Token refreshed');

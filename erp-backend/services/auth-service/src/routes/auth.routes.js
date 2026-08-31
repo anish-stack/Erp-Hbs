@@ -28,7 +28,9 @@ router.post(
   },
   validate(validators.login),
   AuthController.login
-);router.post('/refresh', validate(validators.refresh), AuthController.refresh);
+);
+
+router.post('/refresh', validate(validators.refresh), AuthController.refresh);
 router.post('/forgot-password', strictLimiter, validate(validators.forgotPassword), AuthController.forgotPassword);
 router.post('/reset-password', strictLimiter, validate(validators.resetPassword), AuthController.resetPassword);
 router.post('/send-otp', otpLimiter, validate(validators.sendOtp), AuthController.sendOtp);

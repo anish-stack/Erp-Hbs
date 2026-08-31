@@ -10,6 +10,37 @@ const LEAD_STAGE = {
   LOST: 'LOST'
 };
 
+
+const CATEGORY_MIME = {
+  IMAGE: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'],
+  AVATAR: ['image/jpeg', 'image/png', 'image/webp'],
+  DOCUMENT: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+    'text/csv'
+  ],
+  SPREADSHEET: [
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv'
+  ],
+  INVOICE: ['application/pdf', 'image/jpeg', 'image/png'],
+  CERTIFICATE: ['application/pdf', 'image/jpeg', 'image/png'],
+  DATASHEET: ['application/pdf'],
+  OTHER: [
+    'application/pdf',
+    'application/zip',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'text/plain',
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+};
 /** 7-stage pipeline. WON/LOST are terminal; LOST can be revived to CONTACTED. */
 const STAGE_TRANSITIONS = {
   NEW: ['CONTACTED', 'LOST'],
@@ -74,6 +105,7 @@ const CACHE = {
 
 module.exports = {
   LEAD_STAGE, STAGE_TRANSITIONS, STAGE_PROBABILITY, LEAD_SOURCE,
+  CATEGORY_MIME,
   CUSTOMER_STATUS, CUSTOMER_TYPE, CUSTOMER_SEGMENT, TAX_TREATMENT,
   ADDRESS_TYPE, ACTIVITY_TYPE, CREDIT_LOG_TYPE,
   QUEUE_NAMES, JOB_NAMES, EVENTS, CACHE

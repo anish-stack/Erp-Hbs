@@ -5,6 +5,7 @@ const { ApiError, utils, cache } = require("@erp/shared");
 const LeadRepository = require("../repositories/lead.repository");
 const RelationRepository = require("../repositories/relation.repository");
 const publisher = require("../events/publisher");
+const XLSX = require("xlsx");
 const {
   LEAD_STAGE,
   STAGE_TRANSITIONS,
@@ -14,6 +15,17 @@ const {
 
 function decimal(v) {
   return v === null || v === undefined ? null : String(v);
+}
+function safeDate(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function safeNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return isNaN(n) ? null : n;
 }
 
 function shape(lead) {
@@ -40,7 +52,7 @@ function shape(lead) {
     state: lead.state,
     country: lead.country,
     ownerId: lead.ownerId,
-    categoryIds:lead.categoryIds,
+    categoryIds: lead.categoryIds,
     nextFollowUpAt: lead.nextFollowUpAt,
     lastContactedAt: lead.lastContactedAt,
     lostReason: lead.lostReason,
@@ -78,17 +90,100 @@ class LeadService {
       defaultSortField: "createdAt",
     });
 
+    const now = new Date();
+
+    // Start/end of today
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    /**
+     * Follow-up filter
+     */
+    let followUpFilter = {};
+
+    switch (query.followUp) {
+      case "overdue":
+        followUpFilter = {
+          nextFollowUpAt: {
+            not: null,
+            lt: now,
+          },
+        };
+        break;
+
+      case "today":
+        followUpFilter = {
+          nextFollowUpAt: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
+        };
+        break;
+
+      case "upcoming":
+        followUpFilter = {
+          nextFollowUpAt: {
+            not: null,
+            gt: endOfToday,
+          },
+        };
+        break;
+
+      case "none":
+        followUpFilter = {
+          nextFollowUpAt: null,
+        };
+        break;
+
+      default:
+        followUpFilter = {};
+        break;
+    }
+
     const where = {
       deletedAt: null,
-      ...(query.stage ? { stage: query.stage } : {}),
-      ...(query.source ? { source: query.source } : {}),
-      ...(query.ownerId ? { ownerId: query.ownerId } : {}),
+
+      ...(query.stage
+        ? {
+            stage: query.stage,
+          }
+        : {}),
+
+      ...(query.source
+        ? {
+            source: query.source,
+          }
+        : {}),
+
+      ...(query.ownerId
+        ? {
+            ownerId: query.ownerId,
+          }
+        : {}),
+
+      ...followUpFilter,
+
       ...(query.search
         ? {
             OR: [
-              { companyName: { contains: query.search } },
-              { contactName: { contains: query.search } },
-              { email: { contains: query.search } },
+              {
+                companyName: {
+                  contains: query.search,
+                },
+              },
+              {
+                contactName: {
+                  contains: query.search,
+                },
+              },
+              {
+                email: {
+                  contains: query.search,
+                },
+              },
             ],
           }
         : {}),
@@ -350,6 +445,415 @@ class LeadService {
     const due = await LeadRepository.dueFollowUps(new Date());
     if (due.length) await publisher.followUpDue(due);
     return { due: due.length };
+  }
+static async importExcel(file, user) {
+  if (!file) {
+    throw ApiError.badRequest("Excel file is required");
+  }
+
+  const workbook = XLSX.read(file.buffer, {
+    type: "buffer",
+    cellDates: true,
+  });
+
+  const sheetName = workbook.SheetNames[0];
+
+  if (!sheetName) {
+    throw ApiError.badRequest("Excel sheet not found");
+  }
+
+  const worksheet = workbook.Sheets[sheetName];
+
+  const rows = XLSX.utils.sheet_to_json(worksheet, {
+    defval: null,
+    raw: false,
+  });
+
+  if (!rows.length) {
+    throw ApiError.badRequest("Excel file is empty");
+  }
+
+  const created = [];
+  const failed = [];
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const excelRow = index + 2;
+
+    try {
+      // -------------------------------------------------------
+      // Company Name
+      // -------------------------------------------------------
+
+      const companyName = String(
+        row.companyName ||
+          row["Company Name"] ||
+          row.company ||
+          row.Company ||
+          "",
+      ).trim();
+
+      // IMPORTANT:
+      // Validate before repository.create()
+      if (!companyName) {
+        throw new Error("Company Name is required");
+      }
+
+      // -------------------------------------------------------
+      // Contact Name
+      // -------------------------------------------------------
+
+      const contactName = String(
+        row.contactName ||
+          row["Contact Name"] ||
+          row.contact ||
+          row.Contact ||
+          "",
+      ).trim();
+
+      /*
+       * If contactName is required in Prisma, don't send null.
+       *
+       * Either reject the row:
+       */
+      if (!contactName) {
+        throw new Error("Contact Name is required");
+      }
+
+      // -------------------------------------------------------
+      // Other fields
+      // -------------------------------------------------------
+
+      const email =
+        row.email ||
+        row.Email ||
+        null;
+
+      const phone =
+        row.phone ||
+        row.Phone ||
+        null;
+
+      const designation =
+        row.designation ||
+        row.Designation ||
+        null;
+
+      const source =
+        row.source ||
+        row.Source ||
+        "OTHER";
+
+      const estimatedValue = safeNumber(
+        row.estimatedValue ||
+          row["Estimated Value"],
+      );
+
+      const currencyCode =
+        row.currencyCode ||
+        row["Currency Code"] ||
+        "INR";
+
+      const city =
+        row.city ||
+        row.City ||
+        null;
+
+      const state =
+        row.state ||
+        row.State ||
+        null;
+
+      const country =
+        row.country ||
+        row.Country ||
+        "India";
+
+      const ownerId =
+        row.ownerId ||
+        row["Owner ID"] ||
+        user.id;
+
+      const nextFollowUpAt = safeDate(
+        row.nextFollowUpAt ||
+          row["Next Follow Up"],
+      );
+
+      const tags = row.tags
+        ? String(row.tags)
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        : [];
+
+      const notes =
+        row.notes ||
+        row.Notes ||
+        null;
+
+      // -------------------------------------------------------
+      // Generate lead code
+      // -------------------------------------------------------
+
+      const code =
+        `LEAD-${Date.now()
+          .toString(36)
+          .toUpperCase()}-${randomUUID()
+          .slice(0, 4)
+          .toUpperCase()}`;
+
+      // -------------------------------------------------------
+      // Create Lead
+      // -------------------------------------------------------
+
+      const lead = await LeadRepository.create(
+        {
+          code,
+
+          companyName,
+
+          contactName,
+
+          email,
+
+          phone,
+
+          designation,
+
+          source,
+
+          stage: LEAD_STAGE.NEW,
+
+          estimatedValue,
+
+          currencyCode,
+
+          probability: STAGE_PROBABILITY.NEW,
+
+          categoryIds: [],
+
+          city,
+
+          state,
+
+          country,
+
+          ownerId,
+
+          assignedAt: new Date(),
+
+          nextFollowUpAt,
+
+          tags,
+
+          notes,
+        },
+        user.id,
+      );
+
+      // -------------------------------------------------------
+      // Stage History
+      // -------------------------------------------------------
+
+      await LeadRepository.logStage({
+        leadId: lead.id,
+        fromStage: null,
+        toStage: LEAD_STAGE.NEW,
+        reason: "Lead imported from Excel",
+        actorId: user.id,
+      });
+
+      created.push(shape(lead));
+    } catch (error) {
+      // -------------------------------------------------------
+      // Clean error message
+      // -------------------------------------------------------
+
+      let errorMessage = error?.message || "Import failed";
+
+      /*
+       * Convert Prisma's huge error into something useful.
+       */
+      if (
+        errorMessage.includes(
+          "Argument `contactName` must not be null",
+        )
+      ) {
+        errorMessage = "Contact Name is required";
+      }
+
+      if (
+        errorMessage.includes(
+          "Argument `companyName` must not be null",
+        )
+      ) {
+        errorMessage = "Company Name is required";
+      }
+
+      failed.push({
+        row: excelRow,
+
+        companyName:
+          row.companyName ||
+          row["Company Name"] ||
+          row.company ||
+          row.Company ||
+          null,
+
+        error: errorMessage,
+      });
+    }
+  }
+
+  // -------------------------------------------------------
+  // Clear cache only if something was imported
+  // -------------------------------------------------------
+
+  if (created.length > 0) {
+    await cache.del(CACHE.pipeline());
+  }
+
+  return {
+    total: rows.length,
+    imported: created.length,
+    failed: failed.length,
+    failures: failed,
+    leads: created,
+  };
+}
+  static async exportExcel(query = {}) {
+    console.log(query)
+    const where = {
+      deletedAt: null,
+
+      ...(query.stage
+        ? {
+            stage: query.stage,
+          }
+        : {}),
+
+      ...(query.source
+        ? {
+            source: query.source,
+          }
+        : {}),
+
+     
+
+      ...(query.fromDate || query.toDate
+        ? {
+            createdAt: {
+              ...(query.fromDate
+                ? { gte: new Date(`${query.fromDate}T00:00:00.000Z`) }
+                : {}),
+              ...(query.toDate
+                ? { lte: new Date(`${query.toDate}T23:59:59.999Z`) }
+                : {}),
+            },
+          }
+        : {}),
+
+      ...(query.search
+        ? {
+            OR: [
+              {
+                companyName: {
+                  contains: query.search,
+                },
+              },
+              {
+                contactName: {
+                  contains: query.search,
+                },
+              },
+              {
+                email: {
+                  contains: query.search,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+    console.log(where)
+    const leads = await LeadRepository.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const rows = leads.map((lead) => ({
+      ID: lead.id,
+      Code: lead.code,
+      "Company Name": lead.companyName,
+      "Contact Name": lead.contactName,
+      Email: lead.email,
+      Phone: lead.phone,
+      Designation: lead.designation,
+      Source: lead.source,
+      Stage: lead.stage,
+      "Estimated Value": decimal(lead.estimatedValue),
+      Currency: lead.currencyCode,
+      Probability: lead.probability,
+      "Weighted Value": lead.estimatedValue
+        ? Number(
+            (Number(lead.estimatedValue) * (lead.probability / 100)).toFixed(2),
+          )
+        : null,
+      City: lead.city,
+      State: lead.state,
+      Country: lead.country,
+      "Owner ID": lead.ownerId,
+      "Next Follow Up": lead.nextFollowUpAt,
+      "Last Contacted": lead.lastContactedAt,
+      "Lost Reason": lead.lostReason,
+      "Converted At": lead.convertedAt,
+      "Converted To": lead.convertedToId,
+      Tags: Array.isArray(lead.tags) ? lead.tags.join(", ") : "",
+      Notes: lead.notes,
+      "Created At": lead.createdAt,
+      "Updated At": lead.updatedAt,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    worksheet["!cols"] = [
+      { wch: 8 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 40 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+
+    return XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
   }
 
   static async scanStale(staleDays) {

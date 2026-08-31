@@ -352,6 +352,25 @@
         "audit",
         "gateway"
       ]
-    }
+    },
+    {
+  "label": "RESTART ALL 20 SERVICES",
+  "dependsOrder": "sequence",
+  "dependsOn": [
+    "STOP ALL SERVICES",
+    "ALL 20 services"
+  ]
+},
+{
+  "label": "STOP ALL SERVICES",
+  "type": "shell",
+  "command": "taskkill /F /FI \"WINDOWTITLE eq npm run dev*\"",
+  "problemMatcher": [],
+  "presentation": {
+    "panel": "shared",
+    "focus": false,
+    "clear": true
+  }
+}
   ]
 }

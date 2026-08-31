@@ -4,6 +4,7 @@ const express = require('express');
 const { middlewares, constants } = require('@erp/shared');
 const CustomerController = require('../controllers/customer.controller');
 const v = require('../validators/customer.validator');
+const upload = require('../middlewares/upload');
 
 const { validate, authorize } = middlewares;
 const P = constants.PERMISSIONS;
@@ -15,6 +16,13 @@ router.get('/stats', authorize(P.customer.VIEW), CustomerController.stats);
 
 router.get('/', authorize(P.customer.VIEW), validate(v.list, 'query'), CustomerController.list);
 router.post('/', authorize(P.customer.CREATE), validate(v.create), CustomerController.create);
+
+
+router.get('/export',CustomerController.export);
+router.get('/export/template',CustomerController.exportTemplate);
+router.post('/import',upload.single,CustomerController.import);
+
+
 
 router.get('/:id', authorize(P.customer.VIEW), validate(v.idParam, 'params'), CustomerController.get);
 router.put('/:id', authorize(P.customer.UPDATE), validate(v.idParam, 'params'), validate(v.update), CustomerController.update);

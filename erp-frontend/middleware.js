@@ -20,16 +20,17 @@ export function middleware(request) {
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
+  console.log("pathname",pathname)
 
   // No refresh token + protected route → login
-  if (!refreshToken && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    if (pathname !== '/') {
-      url.searchParams.set('from', pathname);
-    }
-    return NextResponse.redirect(url);
-  }
+  // if (!refreshToken && !isPublic) {
+  //   const url = request.nextUrl.clone();
+  //   url.pathname = '/login';
+  //   if (pathname !== '/') {
+  //     url.searchParams.set('from', pathname);
+  //   }
+  //   return NextResponse.redirect(url);
+  // }
 
   // Has refresh token + visiting login → dashboard
   if (refreshToken && isPublic) {
